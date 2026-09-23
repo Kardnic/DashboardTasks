@@ -141,9 +141,16 @@ function parseSmartTask(raw){
   if(/\b(hohe?n?\s+priorit[aä]t|priorit[aä]t\s+hoch|dringend|sehr\s+wichtig)\b/i.test(lower))priority='hoch';
   else if(/\b(niedrige?n?\s+priorit[aä]t|priorit[aä]t\s+niedrig|nicht\s+dringend)\b/i.test(lower))priority='niedrig';
 
-  const timeMatch=lower.match(/(?:\bum\s*)?\b([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*(?:uhr)?\b/i);
-  if(timeMatch&&(/uhr/i.test(timeMatch[0])||/\bum\s/i.test(timeMatch[0])||timeMatch[2])){
-    hour=Number(timeMatch[1]);minute=Number(timeMatch[2]||0);timeFound=true;
+  let timeToken=null;
+  let timeMatch=lower.match(/\\bum\\s+([01]?\\d|2[0-3])(?:[:.]([0-5]\\d))?(?:\\s*uhr)?\\b/i);
+  if(timeMatch){
+    hour=Number(timeMatch[1]);minute=Number(timeMatch[2]||0);timeFound=true;timeToken=timeMatch[0];
+  }else{
+    timeMatch=lower.match(/\\b([01]?\\d|2[0-3]):([0-5]\\d)(?:\\s*uhr)?\\b/i)
+      ||lower.match(/\\b([01]?\\d|2[0-3])\\s*uhr\\b/i);
+    if(timeMatch){
+      hour=Number(timeMatch[1]);minute=Number(timeMatch[2]||0);timeFound=true;timeToken=timeMatch[0];
+    }
   }
 
   const explicit=lower.match(/\b(0?[1-9]|[12]\d|3[01])\.(0?[1-9]|1[0-2])\.(\d{2,4})\b/);
@@ -181,6 +188,7 @@ function parseSmartTask(raw){
     /(?:\bum\s*)?\b([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*uhr\b/ig
   ];
   for(const r of removals)working=working.replace(r,' ');
+  if(timeToken)working=working.replace(timeToken,' ');
   working=working
     .replace(/\b(am|um)\b(?=\s*[,.;-]|\s*$)/ig,' ')
     .replace(/\s*[,;]+\s*/g,' ')
