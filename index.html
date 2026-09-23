@@ -31,14 +31,30 @@
           <div class="brand">Guten Morgen 👋</div>
           <div id="todayLabel" class="muted"></div>
         </div>
-        <button id="logoutBtn" class="ghost" type="button">Abmelden</button>
+        <div class="top-actions">
+          <button id="notifyBtn" class="ghost" type="button">🔔 Erinnerungen</button>
+          <button id="logoutBtn" class="ghost" type="button">Abmelden</button>
+        </div>
       </header>
+
+      <div id="reminderBanner" class="notice reminder-banner hidden" aria-live="assertive"></div>
+
+      <section class="card focus-card">
+        <div class="section-head">
+          <div>
+            <h2>Morgenfokus</h2>
+            <div class="muted">Die drei wichtigsten Aufgaben aus Heute und Überfällig.</div>
+          </div>
+          <span class="smart-badge">Top 3</span>
+        </div>
+        <div id="focusList" class="focus-list"></div>
+      </section>
 
       <section class="card smart-card">
         <div class="smart-head">
           <div>
             <h2>Smarteingabe</h2>
-            <div class="muted">Einfach schreiben oder mit der Smartphone-Tastatur diktieren.</div>
+            <div class="muted">Einfach schreiben oder direkt einsprechen.</div>
           </div>
           <span class="smart-badge">Schnell</span>
         </div>
@@ -46,7 +62,7 @@
         <form id="smartForm" class="smart-form">
           <label class="sr-only" for="smartInput">Aufgabe natürlich eingeben</label>
           <div class="smart-input-row">
-            <textarea id="smartInput" rows="2" maxlength="360" placeholder="z. B. Freitag um 10 Uhr bei Menke anrufen, hohe Priorität, Arbeit"></textarea>
+            <textarea id="smartInput" rows="2" maxlength="360" placeholder="z. B. Jeden Freitag um 10 Uhr Bericht schreiben, hohe Priorität, JS Wenau"></textarea>
             <button id="micBtn" class="ghost mic-btn" type="button" aria-label="Spracheingabe starten" title="Aufgabe einsprechen">
               <span class="mic-icon" aria-hidden="true">🎤</span>
               <span id="micLabel" class="mic-label">Sprechen</span>
@@ -63,6 +79,8 @@
             <span id="previewDue" class="pill"></span>
             <span id="previewCategory" class="pill"></span>
             <span id="previewPriority" class="pill"></span>
+            <span id="previewState" class="pill hidden"></span>
+            <span id="previewRecurrence" class="pill hidden"></span>
           </div>
         </div>
         <div id="smartMsg" class="notice hidden" aria-live="polite"></div>
@@ -74,6 +92,7 @@
             <div class="stat"><strong id="statToday">0</strong><span>Heute</span></div>
             <div class="stat"><strong id="statOverdue">0</strong><span>Überfällig</span></div>
             <div class="stat"><strong id="statInbox">0</strong><span>Inbox</span></div>
+            <div class="stat"><strong id="statWaiting">0</strong><span>Warten auf</span></div>
             <div class="stat"><strong id="statWeek">0</strong><span>7 Tage</span></div>
           </div>
 
@@ -82,6 +101,7 @@
             <button class="ghost filter" data-filter="all">Offen</button>
             <button class="ghost filter" data-filter="overdue">Überfällig</button>
             <button class="ghost filter" data-filter="inbox">Inbox</button>
+            <button class="ghost filter" data-filter="waiting">Warten auf</button>
             <button class="ghost filter" data-filter="week">7 Tage</button>
             <button class="ghost filter" data-filter="done">Erledigt</button>
           </div>
@@ -123,6 +143,20 @@
                   </select>
                 </label>
               </div>
+              <div class="row">
+                <label>Wiederholung
+                  <select id="recurrence">
+                    <option value="none">Keine</option>
+                    <option value="daily">Täglich</option>
+                    <option value="weekly">Wöchentlich</option>
+                    <option value="monthly">Monatlich</option>
+                  </select>
+                </label>
+                <label>Erinnerung
+                  <input id="reminderAt" type="datetime-local">
+                </label>
+              </div>
+              <label class="check-row"><input id="waitingFor" type="checkbox"> <span>Auf „Warten auf“ setzen</span></label>
               <label>Notiz<textarea id="description" rows="3" maxlength="1000" placeholder="Optional"></textarea></label>
               <button class="primary" type="submit">Aufgabe speichern</button>
               <div id="taskMsg" class="notice hidden" aria-live="polite"></div>
