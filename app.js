@@ -1015,11 +1015,30 @@ $('#mfaLogoutBtn').addEventListener('click',async()=>{
   await db.auth.signOut();
 });
 
-$('#securityBtn').addEventListener('click',async()=>{
-  $('#securityPanel').classList.toggle('hidden');
-  if(!$('#securityPanel').classList.contains('hidden'))await refreshSecurityStatus();
+function openSettings(){
+  $('#settingsOverlay').classList.remove('hidden');
+  document.body.classList.add('settings-open');
+  $('#settingsBtn').setAttribute('aria-expanded','true');
+  refreshSecurityStatus();
+  applyMobileAreaPreference();
+  updateNotifyButton();
+}
+
+function closeSettings(){
+  $('#settingsOverlay').classList.add('hidden');
+  document.body.classList.remove('settings-open');
+  $('#settingsBtn').setAttribute('aria-expanded','false');
+}
+
+$('#settingsBtn').setAttribute('aria-expanded','false');
+$('#settingsBtn').addEventListener('click',openSettings);
+$('#closeSettingsBtn').addEventListener('click',closeSettings);
+$('#settingsOverlay').addEventListener('click',event=>{
+  if(event.target===$('#settingsOverlay'))closeSettings();
 });
-$('#closeSecurityBtn').addEventListener('click',()=>$('#securityPanel').classList.add('hidden'));
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&!$('#settingsOverlay').classList.contains('hidden'))closeSettings();
+});
 
 $('#enrollMfaBtn').addEventListener('click',async()=>{
   hideMsg(securityMsg);
@@ -1092,6 +1111,7 @@ $('#loginForm').addEventListener('submit',async e=>{
 });
 
 $('#logoutBtn').addEventListener('click',async()=>{
+  closeSettings();
   await removePushSubscription();
   await db.auth.signOut();
 });
@@ -1100,6 +1120,8 @@ async function syncSession(session){
   const loggedIn=!!session;
 
   if(!loggedIn){
+    $('#settingsOverlay')?.classList.add('hidden');
+    document.body.classList.remove('settings-open');
     authView.classList.remove('hidden');
     mfaView.classList.add('hidden');
     appView.classList.add('hidden');
