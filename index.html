@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#1769aa">
+  <title>Aufgaben Dashboard</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section id="authView" class="auth card">
+      <div class="brand">Aufgaben Dashboard</div>
+      <p class="muted">Melde dich an, damit Smartphone und PC dieselben Aufgaben anzeigen.</p>
+      <form id="loginForm" class="form">
+        <label>E-Mail<input id="email" type="email" autocomplete="email" required></label>
+        <label>Passwort<input id="password" type="password" autocomplete="current-password" minlength="6" required></label>
+        <div class="row">
+          <button class="primary" type="submit">Anmelden</button>
+          <button id="signupBtn" class="ghost" type="button">Konto anlegen</button>
+        </div>
+        <div id="authMsg" class="notice hidden" aria-live="polite"></div>
+      </form>
+    </section>
+
+    <section id="appView" class="hidden">
+      <header class="topbar">
+        <div>
+          <div class="brand">Guten Morgen 👋</div>
+          <div id="todayLabel" class="muted"></div>
+        </div>
+        <button id="logoutBtn" class="ghost" type="button">Abmelden</button>
+      </header>
+
+      <div class="grid">
+        <section class="card">
+          <div class="stats">
+            <div class="stat"><strong id="statToday">0</strong><span>Heute</span></div>
+            <div class="stat"><strong id="statOverdue">0</strong><span>Überfällig</span></div>
+            <div class="stat"><strong id="statInbox">0</strong><span>Inbox</span></div>
+            <div class="stat"><strong id="statWeek">0</strong><span>7 Tage</span></div>
+          </div>
+
+          <div class="filters">
+            <button class="ghost filter active" data-filter="today">Heute</button>
+            <button class="ghost filter" data-filter="all">Offen</button>
+            <button class="ghost filter" data-filter="overdue">Überfällig</button>
+            <button class="ghost filter" data-filter="inbox">Inbox</button>
+            <button class="ghost filter" data-filter="week">7 Tage</button>
+            <button class="ghost filter" data-filter="done">Erledigt</button>
+          </div>
+
+          <div id="taskList" class="tasks" aria-live="polite"></div>
+        </section>
+
+        <aside class="card quick">
+          <h2 style="margin-top:0">Schnellerfassung</h2>
+          <form id="taskForm" class="form">
+            <label>Aufgabe<input id="taskTitle" placeholder="Was ist zu erledigen?" maxlength="240" required></label>
+            <div class="notice">📱 Für Spracheingabe einfach das Mikrofon deiner Smartphone-Tastatur verwenden.</div>
+            <div class="row">
+              <label>Fälligkeit
+                <select id="dueMode">
+                  <option value="inbox">Inbox</option>
+                  <option value="today">Heute</option>
+                  <option value="tomorrow">Morgen</option>
+                  <option value="date">Datum wählen</option>
+                </select>
+              </label>
+              <label id="dueDateWrap" class="hidden">Datum<input id="dueDate" type="date"></label>
+            </div>
+            <div class="row">
+              <label>Kategorie
+                <select id="category">
+                  <option>Arbeit</option>
+                  <option>Privat</option>
+                  <option>JS Wenau</option>
+                  <option>Projekte</option>
+                  <option>Sonstiges</option>
+                </select>
+              </label>
+              <label>Priorität
+                <select id="priority">
+                  <option value="normal">Normal</option>
+                  <option value="hoch">Hoch</option>
+                  <option value="niedrig">Niedrig</option>
+                </select>
+              </label>
+            </div>
+            <label>Notiz<textarea id="description" rows="3" maxlength="1000" placeholder="Optional"></textarea></label>
+            <button class="primary" type="submit">Aufgabe speichern</button>
+            <div id="taskMsg" class="notice hidden" aria-live="polite"></div>
+          </form>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
