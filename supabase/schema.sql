@@ -115,45 +115,72 @@ revoke all on function app_private.is_allowed_user() from public, anon;
 grant usage on schema app_private to authenticated;
 grant execute on function app_private.is_allowed_user() to authenticated;
 
+create or replace function app_private.can_access_app_data()
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog
+as $
+  select
+    exists (
+      select 1
+      from app_private.allowed_users au
+      where au.user_id = (select auth.uid())
+    )
+    and (
+      not exists (
+        select 1
+        from auth.mfa_factors mf
+        where mf.user_id = (select auth.uid())
+          and mf.status = 'verified'
+      )
+      or coalesce(auth.jwt()->>'aal','aal1') = 'aal2'
+    )
+$;
+
+revoke all on function app_private.can_access_app_data() from public, anon;
+grant execute on function app_private.can_access_app_data() to authenticated;
+
 alter table public.tasks enable row level security;
 alter table public.push_subscriptions enable row level security;
 
 drop policy if exists "Eigene Aufgaben lesen" on public.tasks;
 create policy "Eigene Aufgaben lesen" on public.tasks
 for select to authenticated
-using (app_private.is_allowed_user() and (select auth.uid()) = user_id);
+using (app_private.can_access_app_data() and (select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Aufgaben anlegen" on public.tasks;
 create policy "Eigene Aufgaben anlegen" on public.tasks
 for insert to authenticated
-with check (app_private.is_allowed_user() and (select auth.uid()) = user_id);
+with check (app_private.can_access_app_data() and (select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Aufgaben ändern" on public.tasks;
 create policy "Eigene Aufgaben ändern" on public.tasks
 for update to authenticated
-using (app_private.is_allowed_user() and (select auth.uid()) = user_id)
-with check (app_private.is_allowed_user() and (select auth.uid()) = user_id);
+using (app_private.can_access_app_data() and (select auth.uid()) = user_id)
+with check (app_private.can_access_app_data() and (select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Aufgaben löschen" on public.tasks;
 create policy "Eigene Aufgaben löschen" on public.tasks
 for delete to authenticated
-using (app_private.is_allowed_user() and (select auth.uid()) = user_id);
+using (app_private.can_access_app_data() and (select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Push Abos lesen" on public.push_subscriptions;
 create policy "Eigene Push Abos lesen" on public.push_subscriptions
 for select to authenticated
-using (app_private.is_allowed_user() and (select auth.uid()) = user_id);
+using (app_private.can_access_app_data() and (select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Push Abos anlegen" on public.push_subscriptions;
 create policy "Eigene Push Abos anlegen" on public.push_subscriptions
 for insert to authenticated
-with check (app_private.is_allowed_user() and (select auth.uid()) = user_id);
+with check (app_private.can_access_app_data() and (select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Push Abos ändern" on public.push_subscriptions;
 create policy "Eigene Push Abos ändern" on public.push_subscriptions
 for update to authenticated
-using (app_private.is_allowed_user() and (select auth.uid()) = user_id)
-with check (app_private.is_allowed_user() and (select auth.uid()) = user_id);
+using (app_private.can_access_app_data() and (select auth.uid()) = user_id)
+with check (app_private.can_access_app_data() and (select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Push Abos löschen" on public.push_subscriptions;
 create policy "Eigene Push Abos löschen" on public.push_subscriptions
@@ -259,7 +286,8 @@ revoke all on function public.get_cron_secret() from public, anon, authenticated
 grant execute on function public.get_cron_secret() to service_role;
 
 -- Secure defaults for future objects.
-revoke create on schema public from public, anon, authenticated;
+revoke create on schema public from PUBLIC, anon, authenticated;
+revoke usage on schema public from PUBLIC;
 revoke usage on schema public from anon;
 grant usage on schema public to authenticated;
 
