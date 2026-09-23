@@ -7,9 +7,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#1769aa">
   <title>Aufgaben Dashboard</title>
-  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="manifest" href="./manifest.webmanifest?v=20260923-1120">
   <link rel="icon" href="./icon.svg">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=20260923-1120">
 </head>
 <body>
   <main class="shell">
@@ -21,6 +21,7 @@
         <label>Passwort<input id="password" type="password" autocomplete="current-password" minlength="6" required></label>
         <button class="primary" type="submit">Anmelden</button>
         <div class="muted">Neue Konten können nicht über diese App angelegt werden.</div>
+        <div class="muted app-version">Version 20260923-1120</div>
         <div id="authMsg" class="notice hidden" aria-live="polite"></div>
       </form>
     </section>
@@ -301,6 +302,6 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.0/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
-  <script src="./app.js"></script>
+  <script src="./app.js?v=20260923-1120"></script>
 </body>
 </html>
