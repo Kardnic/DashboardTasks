@@ -1,4 +1,4 @@
-const CACHE='dashboardtasks-v5-areas';
+const CACHE='dashboardtasks-v6-geofence';
 const ASSETS=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
