@@ -1,49 +1,26 @@
-# Echte Push-Erinnerungen einrichten
+# Echte Push-Erinnerungen
 
-Die Web-App ist bereits für Web Push vorbereitet. Die folgenden Server-Schritte sind einmalig nötig.
+Die Push-Infrastruktur ist für dieses Projekt bereits eingerichtet.
 
-## 1. Datenbank erweitern
+## Aktiver Aufbau
 
-Führe die aktuelle Datei `supabase/schema.sql` im Supabase SQL Editor erneut aus.
-Sie ist idempotent und legt zusätzlich `push_subscriptions` samt RLS-Regeln an.
+- Browser/PWA registriert ein Web-Push-Abo in `push_subscriptions`.
+- RLS schützt die Push-Abos pro Benutzer.
+- Der private VAPID-Schlüssel liegt verschlüsselt in Supabase Vault.
+- `send-reminders` läuft als Supabase Edge Function.
+- `pg_cron` ruft die Funktion jede Minute auf.
+- Abgelaufene Push-Abos werden automatisch entfernt.
 
-## 2. VAPID Private Key als Secret setzen
+## Smartphone aktivieren
 
-In Supabase:
-**Edge Functions → Secrets**
+1. Dashboard/PWA neu laden.
+2. Oben auf **Push aktivieren** tippen.
+3. Benachrichtigungen erlauben.
+4. Eine Testaufgabe mit Erinnerung wenige Minuten in der Zukunft anlegen.
+5. Die App schließen und auf die Push-Erinnerung warten.
 
-Secret:
-- Name: `VAPID_PRIVATE_KEY`
-- Wert: **nicht in GitHub speichern**; den privaten Schlüssel nur im Supabase-Dashboard hinterlegen.
+Falls das Gerät noch ein Push-Abo mit einem älteren VAPID-Schlüssel besitzt, erkennt die App dies und registriert automatisch ein neues Abo.
 
-Der öffentliche VAPID-Schlüssel ist bereits in `app.js` und der Edge Function hinterlegt.
+## iPhone/iPad
 
-## 3. Edge Function deployen
-
-Im Supabase Dashboard:
-**Edge Functions → Deploy a new function → Via Editor**
-
-Name:
-`send-reminders`
-
-Code:
-`supabase/functions/send-reminders/index.ts`
-
-Alternativ per CLI:
-```bash
-supabase functions deploy send-reminders --project-ref hfpryzswevnpmqdaidzj
-```
-
-## 4. Cron aktivieren
-
-Nach erfolgreichem Deployment im SQL Editor:
-`supabase/push_cron.sql`
-
-Der Cron Job ruft die Edge Function jede Minute auf.
-
-## 5. Smartphone
-
-Dashboard/PWA öffnen und oben auf **Push aktivieren** tippen.
-Die Push-Berechtigung des Browsers erlauben.
-
-Auf iPhone/iPad muss die Webseite für Web Push als Web-App zum Home-Bildschirm hinzugefügt und von dort geöffnet werden.
+Für Web Push die Webseite als Web-App zum Home-Bildschirm hinzufügen und von dort öffnen.
