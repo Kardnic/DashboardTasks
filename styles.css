@@ -35,3 +35,15 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.sr-only{positio
   .shell{padding:12px}.grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.topbar{align-items:flex-start}.top-actions{max-width:48%}.row{flex-direction:column}.quick{order:0}.task{grid-template-columns:auto minmax(0,1fr)}.task-actions{grid-column:2;justify-content:flex-start}
   .smart-form{grid-template-columns:1fr}.smart-save{min-width:0;width:100%}.smart-card{padding:14px}.smart-form textarea{min-height:92px}.mic-btn{min-width:72px}.quick details[open]{padding-bottom:2px}
 }
+.task-board{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.task-column{border:1px solid var(--line);border-radius:16px;padding:12px;background:var(--panel2);min-width:0}
+.column-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:2px 2px 10px}
+.column-head h3{margin:0 0 2px;font-size:1.05rem}
+.column-count{min-width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:.9rem}
+.work-column{border-top:3px solid var(--accent)}
+.private-column{border-top:3px solid var(--ok)}
+.area-pill{font-weight:750}
+.task-column .empty{padding:22px 8px}
+@media(max-width:780px){
+  .task-board{grid-template-columns:1fr}
+}
