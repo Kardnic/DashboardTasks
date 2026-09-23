@@ -33,23 +33,23 @@ alter table public.tasks enable row level security;
 drop policy if exists "Eigene Aufgaben lesen" on public.tasks;
 create policy "Eigene Aufgaben lesen" on public.tasks
 for select to authenticated
-using (auth.uid() = user_id);
+using ((select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Aufgaben anlegen" on public.tasks;
 create policy "Eigene Aufgaben anlegen" on public.tasks
 for insert to authenticated
-with check (auth.uid() = user_id);
+with check ((select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Aufgaben ändern" on public.tasks;
 create policy "Eigene Aufgaben ändern" on public.tasks
 for update to authenticated
 using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+with check ((select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Aufgaben löschen" on public.tasks;
 create policy "Eigene Aufgaben löschen" on public.tasks
 for delete to authenticated
-using (auth.uid() = user_id);
+using ((select auth.uid()) = user_id);
 
 grant select, insert, update, delete on public.tasks to authenticated;
 
@@ -96,25 +96,100 @@ alter table public.push_subscriptions enable row level security;
 drop policy if exists "Eigene Push Abos lesen" on public.push_subscriptions;
 create policy "Eigene Push Abos lesen" on public.push_subscriptions
 for select to authenticated
-using (auth.uid() = user_id);
+using ((select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Push Abos anlegen" on public.push_subscriptions;
 create policy "Eigene Push Abos anlegen" on public.push_subscriptions
 for insert to authenticated
-with check (auth.uid() = user_id);
+with check ((select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Push Abos ändern" on public.push_subscriptions;
 create policy "Eigene Push Abos ändern" on public.push_subscriptions
 for update to authenticated
 using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+with check ((select auth.uid()) = user_id);
 
 drop policy if exists "Eigene Push Abos löschen" on public.push_subscriptions;
 create policy "Eigene Push Abos löschen" on public.push_subscriptions
 for delete to authenticated
-using (auth.uid() = user_id);
+using ((select auth.uid()) = user_id);
 
 grant select, insert, update, delete on public.push_subscriptions to authenticated;
 
 create index if not exists push_subscriptions_user_idx
 on public.push_subscriptions(user_id);
+
+
+create table if not exists public.push_server_config (
+  id boolean primary key default true check (id),
+  vapid_public_key text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.push_server_config enable row level security;
+revoke all on public.push_server_config from anon, authenticated;
+
+drop policy if exists "Push Server Config Backend" on public.push_server_config;
+create policy "Push Server Config Backend" on public.push_server_config
+for all to service_role
+using (true)
+with check (true);
+
+create or replace function public.configure_vapid(
+  p_private_key text,
+  p_public_key text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, vault, pg_catalog
+as $$
+declare
+  sid uuid;
+begin
+  select id into sid
+  from vault.secrets
+  where name = 'dashboardtasks_vapid_private'
+  limit 1;
+
+  if sid is null then
+    perform vault.create_secret(
+      p_private_key,
+      'dashboardtasks_vapid_private',
+      'DashboardTasks Web Push VAPID private key'
+    );
+  else
+    perform vault.update_secret(
+      sid,
+      p_private_key,
+      'dashboardtasks_vapid_private',
+      'DashboardTasks Web Push VAPID private key'
+    );
+  end if;
+
+  insert into public.push_server_config(id, vapid_public_key, updated_at)
+  values (true, p_public_key, now())
+  on conflict (id) do update
+    set vapid_public_key = excluded.vapid_public_key,
+        updated_at = now();
+end;
+$$;
+
+revoke all on function public.configure_vapid(text,text) from public, anon, authenticated;
+grant execute on function public.configure_vapid(text,text) to service_role;
+
+create or replace function public.get_vapid_private()
+returns text
+language sql
+security definer
+set search_path = vault, pg_catalog
+as $$
+  select decrypted_secret
+  from vault.decrypted_secrets
+  where name = 'dashboardtasks_vapid_private'
+  limit 1
+$$;
+
+revoke all on function public.get_vapid_private() from public, anon, authenticated;
+grant execute on function public.get_vapid_private() to service_role;
