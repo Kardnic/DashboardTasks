@@ -1,42 +1,41 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
-const VAPID_PUBLIC_KEY = "BGf1lCSlipuQpSXW6LL6WEMc_xMuI5IdNajm5qGbEW1Z7RlIN4t_YvEbR3sZTA5Ti1AM8Bk5o0D22enP0uYFxmQ";
-const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY");
+const VAPID_PUBLIC_KEY = "BLi3pd0LO6c-v87cuQ9Htd1vtRGegpYUBS6WHSqn2oh0DP0ABFE9BW2shmu3hp5L9lSJ_VLExI-MxAc5O5kANrA";
 
-if (!VAPID_PRIVATE_KEY) {
-  throw new Error("VAPID_PRIVATE_KEY is not configured");
-}
-
-webpush.setVapidDetails(
-  "https://github.com/Kardnic/DashboardTasks",
-  VAPID_PUBLIC_KEY,
-  VAPID_PRIVATE_KEY,
-);
+const publishableKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}");
+const validPublishableKeys = new Set(Object.values(publishableKeys));
 
 const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
-const serviceKey =
-  secretKeys.default ??
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-if (!serviceKey) {
-  throw new Error("Supabase secret key is unavailable");
-}
+const serviceKey = secretKeys.default ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+if (!serviceKey) throw new Error("Supabase admin key unavailable");
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   serviceKey,
-  { auth: { persistSession: false } },
+  { auth: { persistSession: false } }
 );
 
-type Task = {
-  id: string;
-  user_id: string;
-  title: string;
-  reminder_at: string | null;
-};
+Deno.serve(async (req) => {
+  const apiKey = req.headers.get("apikey");
+  if (!apiKey || !validPublishableKeys.has(apiKey)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
 
-Deno.serve(async () => {
+  const { data: vapidPrivateKey, error: vapidError } = await supabase.rpc("get_vapid_private");
+  if (vapidError || !vapidPrivateKey) {
+    return Response.json(
+      { error: vapidError?.message ?? "VAPID private key unavailable", vapidConfigured: false },
+      { status: 503 }
+    );
+  }
+
+  webpush.setVapidDetails(
+    "https://github.com/Kardnic/DashboardTasks",
+    VAPID_PUBLIC_KEY,
+    vapidPrivateKey
+  );
+
   const now = new Date();
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
@@ -51,14 +50,14 @@ Deno.serve(async () => {
     .limit(100);
 
   if (taskError) {
-    return Response.json({ error: taskError.message }, { status: 500 });
+    return Response.json({ error: taskError.message, vapidConfigured: true }, { status: 500 });
   }
 
   let notificationsSent = 0;
   let tasksMarked = 0;
   let expiredSubscriptionsRemoved = 0;
 
-  for (const task of (tasks ?? []) as Task[]) {
+  for (const task of tasks ?? []) {
     const { data: subscriptions, error: subError } = await supabase
       .from("push_subscriptions")
       .select("id,endpoint,p256dh,auth")
@@ -67,28 +66,24 @@ Deno.serve(async () => {
     if (subError) continue;
 
     let delivered = false;
-
     for (const sub of subscriptions ?? []) {
       try {
         await webpush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
-          },
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           JSON.stringify({
             title: "Aufgaben-Erinnerung",
             body: task.title,
             tag: "task-" + task.id,
-            taskId: task.id,
+            taskId: task.id
           }),
-          { TTL: 60 * 60 },
+          { TTL: 3600 }
         );
         notificationsSent++;
         delivered = true;
       } catch (error) {
         const statusCode =
           typeof error === "object" && error && "statusCode" in error
-            ? Number((error as { statusCode?: number }).statusCode)
+            ? Number(error.statusCode)
             : 0;
 
         if (statusCode === 404 || statusCode === 410) {
@@ -106,15 +101,15 @@ Deno.serve(async () => {
         .update({ reminded_at: new Date().toISOString() })
         .eq("id", task.id)
         .is("reminded_at", null);
-
       if (!markError) tasksMarked++;
     }
   }
 
   return Response.json({
+    vapidConfigured: true,
     checked: tasks?.length ?? 0,
     notificationsSent,
     tasksMarked,
-    expiredSubscriptionsRemoved,
+    expiredSubscriptionsRemoved
   });
 });
