@@ -119,6 +119,7 @@
           <div id="previewTitle" class="preview-title"></div>
           <div class="preview-pills">
             <span id="previewDue" class="pill"></span>
+            <span id="previewArea" class="pill area-pill"></span>
             <span id="previewCategory" class="pill"></span>
             <span id="previewPriority" class="pill"></span>
             <span id="previewState" class="pill hidden"></span>
@@ -148,7 +149,29 @@
             <button class="ghost filter" data-filter="done">Erledigt</button>
           </div>
 
-          <div id="taskList" class="tasks" aria-live="polite"></div>
+          <div class="task-board" aria-live="polite">
+            <section class="task-column work-column">
+              <div class="column-head">
+                <div>
+                  <h3>💼 Arbeit</h3>
+                  <div class="muted">Berufliche Aufgaben</div>
+                </div>
+                <strong id="workCount" class="column-count">0</strong>
+              </div>
+              <div id="workTaskList" class="tasks"></div>
+            </section>
+
+            <section class="task-column private-column">
+              <div class="column-head">
+                <div>
+                  <h3>🏠 Privat</h3>
+                  <div class="muted">Private Aufgaben, JS Wenau und Freizeit</div>
+                </div>
+                <strong id="privateCount" class="column-count">0</strong>
+              </div>
+              <div id="privateTaskList" class="tasks"></div>
+            </section>
+          </div>
         </section>
 
         <aside class="card quick">
@@ -168,6 +191,12 @@
                 <label id="dueDateWrap" class="hidden">Datum<input id="dueDate" type="date"></label>
               </div>
               <div class="row">
+                <label>Bereich
+                  <select id="area">
+                    <option>Arbeit</option>
+                    <option>Privat</option>
+                  </select>
+                </label>
                 <label>Kategorie
                   <select id="category">
                     <option>Arbeit</option>
