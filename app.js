@@ -124,9 +124,10 @@ function readWorkLocation(){
 }
 
 function saveWorkLocation(lat,lon,radius){
+  const coarse=v=>Math.round(Number(v)*10000)/10000;
   localStorage.setItem(WORK_LOCATION_KEY,JSON.stringify({
-    lat:Number(lat),
-    lon:Number(lon),
+    lat:coarse(lat),
+    lon:coarse(lon),
     radius:Number(radius)||300,
     savedAt:new Date().toISOString()
   }));
