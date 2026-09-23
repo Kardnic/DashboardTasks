@@ -1,6 +1,8 @@
 package de.kardnic.dashboardtasks.widget
 
 import android.app.Application
+import androidx.glance.appwidget.updateAll
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
