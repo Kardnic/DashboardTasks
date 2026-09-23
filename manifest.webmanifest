@@ -1,13 +1,19 @@
 {
-  "name":"Aufgaben Dashboard",
-  "short_name":"Aufgaben",
-  "start_url":"./",
-  "scope":"./",
-  "display":"standalone",
-  "background_color":"#f4f6f8",
-  "theme_color":"#1769aa",
-  "description":"Persönliches Aufgaben-Dashboard für Smartphone und PC",
-  "icons":[
-    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
-  ]
+  "name": "Aufgaben Dashboard",
+  "short_name": "Aufgaben",
+  "start_url": "./?appv=20260923-1120",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#1769aa",
+  "description": "Persönliches Aufgaben-Dashboard für Smartphone und PC",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "id": "./?app=dashboardtasks"
 }
