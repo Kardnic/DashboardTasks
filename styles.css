@@ -71,3 +71,33 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.sr-only{positio
   .task-board.manual-private .private-column{order:0;border-width:2px;border-color:var(--ok)}
   .task-board.manual-private .work-column{order:1;opacity:.82}
 }
+
+body.settings-open{overflow:hidden}
+.settings-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:18px}
+.settings-sheet{width:min(720px,100%);max-height:min(88vh,900px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.24)}
+.settings-header{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:18px;border-bottom:1px solid var(--line);background:var(--panel)}
+.settings-header h2{margin:0 0 3px}
+.settings-content{display:grid;gap:12px;padding:16px}
+.settings-group{border:1px solid var(--line);border-radius:16px;padding:14px;background:var(--panel2)}
+.settings-group.security-panel{margin:0}
+.setting-group-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.setting-group-head h3,.danger-zone h3{margin:0 0 4px}
+.settings-action{width:100%;margin-top:12px}
+.icon-button{min-width:44px;padding:8px 11px}
+.location-settings-body{display:grid;gap:10px;margin-top:12px}
+.location-settings-body select{width:100%;min-height:44px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:12px;padding:10px}
+.danger-zone{display:grid;gap:10px}
+.settings-btn{white-space:nowrap}
+
+@media(max-width:780px){
+  .topbar{align-items:center}
+  .top-actions{max-width:none}
+  .settings-btn{font-size:0;width:46px;min-width:46px;padding:8px}
+  .settings-btn::before{content:'⚙️';font-size:1.25rem}
+  .settings-overlay{align-items:flex-end;padding:0}
+  .settings-sheet{width:100%;max-height:92dvh;border-radius:20px 20px 0 0;border-left:0;border-right:0;border-bottom:0}
+  .settings-header{padding:16px}
+  .settings-content{padding:12px}
+  .settings-group{padding:13px}
+  .area-mode-switch{grid-template-columns:repeat(3,1fr)}
+}
