@@ -1,6 +1,6 @@
 const SUPABASE_URL='https://hfpryzswevnpmqdaidzj.supabase.co';
 const SUPABASE_KEY='sb_publishable_odMpT_m3G4RihPHoaYFMKA_fz7NPVsy';
-const VAPID_PUBLIC_KEY='BGf1lCSlipuQpSXW6LL6WEMc_xMuI5IdNajm5qGbEW1Z7RlIN4t_YvEbR3sZTA5Ti1AM8Bk5o0D22enP0uYFxmQ';
+const VAPID_PUBLIC_KEY='BLmHiuJ2ib_trypUwxV58QC1UqF44g-QVxW2BWzwomU-f3KocNmTmLvux2f10C6tscYJR-Zlg-lJakfJ_nxa3fI';
 const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
   auth:{
     persistSession:true,
