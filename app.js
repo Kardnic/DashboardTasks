@@ -221,17 +221,106 @@ function updateSmartPreview(){
   preview.classList.remove('hidden');
 }
 
-$('#smartInput').addEventListener('input',updateSmartPreview);
+let smartInputMode='text';
+let speechRecognition=null;
+let speechBase='';
+let speechProgrammatic=false;
+const SpeechRecognitionApi=window.SpeechRecognition||window.webkitSpeechRecognition;
+const smartInput=$('#smartInput');
+const micBtn=$('#micBtn');
+const micLabel=$('#micLabel');
+const micStatus=$('#micStatus');
+
+function setMicState(listening){
+  micBtn.classList.toggle('listening',listening);
+  micBtn.setAttribute('aria-label',listening?'Spracheingabe stoppen':'Spracheingabe starten');
+  micLabel.textContent=listening?'Stopp':'Sprechen';
+}
+
+function showMicStatus(text,isError=false){
+  micStatus.textContent=text;
+  micStatus.classList.toggle('error',isError);
+  micStatus.classList.remove('hidden');
+}
+
+if(!SpeechRecognitionApi){
+  micBtn.disabled=true;
+  micLabel.textContent='Nicht verfügbar';
+  showMicStatus('Direkte Spracheingabe wird von diesem Browser nicht unterstützt. Das Mikrofon der Smartphone-Tastatur funktioniert weiterhin.');
+}else{
+  speechRecognition=new SpeechRecognitionApi();
+  speechRecognition.lang='de-DE';
+  speechRecognition.interimResults=true;
+  speechRecognition.continuous=false;
+
+  micBtn.addEventListener('click',()=>{
+    if(micBtn.classList.contains('listening')){
+      speechRecognition.stop();
+      return;
+    }
+    speechBase=smartInput.value.trim();
+    try{
+      speechRecognition.start();
+    }catch(err){
+      showMicStatus('Die Spracheingabe konnte nicht gestartet werden. Bitte kurz erneut versuchen.',true);
+    }
+  });
+
+  speechRecognition.onstart=()=>{
+    setMicState(true);
+    showMicStatus('Ich höre zu … sprich deine Aufgabe.');
+  };
+
+  speechRecognition.onresult=event=>{
+    let transcript='';
+    for(let i=0;i<event.results.length;i++){
+      transcript+=event.results[i][0].transcript;
+    }
+    speechProgrammatic=true;
+    smartInput.value=[speechBase,transcript.trim()].filter(Boolean).join(' ');
+    speechProgrammatic=false;
+    smartInputMode='voice';
+    updateSmartPreview();
+  };
+
+  speechRecognition.onerror=event=>{
+    setMicState(false);
+    const messages={
+      'not-allowed':'Mikrofonzugriff wurde nicht erlaubt. Bitte erlaube das Mikrofon für diese Seite in den Browser-Einstellungen.',
+      'service-not-allowed':'Der Browser hat die Spracheingabe blockiert.',
+      'audio-capture':'Es wurde kein verfügbares Mikrofon gefunden.',
+      'no-speech':'Ich habe keine Sprache erkannt. Tippe auf das Mikrofon und versuche es erneut.',
+      'network':'Die Spracherkennung hatte ein Netzwerkproblem.'
+    };
+    showMicStatus(messages[event.error]||('Spracheingabe fehlgeschlagen: '+event.error),true);
+  };
+
+  speechRecognition.onend=()=>{
+    setMicState(false);
+    if(smartInputMode==='voice'&&smartInput.value.trim()){
+      showMicStatus('Sprache erkannt. Prüfe kurz die Vorschau und speichere die Aufgabe.');
+    }
+  };
+}
+
+smartInput.addEventListener('input',()=>{
+  if(!speechProgrammatic)smartInputMode='text';
+  updateSmartPreview();
+});
+
 $('#smartForm').addEventListener('submit',async e=>{
   e.preventDefault();hideMsg(smartMsg);
   const value=$('#smartInput').value.trim();
   if(!value){showMsg(smartMsg,'Bitte zuerst eine Aufgabe eingeben.','error');return}
   const payload=parseSmartTask(value);
+  payload.source=smartInputMode;
   const {data,error}=await db.from('tasks').insert(payload).select().single();
   if(error){showMsg(smartMsg,'Speichern fehlgeschlagen: '+error.message,'error');return}
   tasks.unshift(data);
   $('#smartInput').value='';
+  smartInputMode='text';
   $('#smartPreview').classList.add('hidden');
+  micStatus.classList.add('hidden');
   showMsg(smartMsg,'Aufgabe gespeichert.','success');
   render();
   $('#smartInput').focus();
