@@ -23,6 +23,12 @@ const authMsg=$('#authMsg'),mfaChallengeMsg=$('#mfaChallengeMsg'),taskMsg=$('#ta
 const workTaskList=$('#workTaskList'),privateTaskList=$('#privateTaskList');
 const focusList=$('#focusList'),reminderBanner=$('#reminderBanner'),securityMsg=$('#securityMsg');
 let tasks=[],activeFilter='today',reminderTimer=null,pendingEnrollmentFactorId=null;
+const WORK_LOCATION_KEY='dashboardtasks_work_location_v1';
+const MOBILE_AREA_MODE_KEY='dashboardtasks_mobile_area_mode_v1';
+let mobileAreaMode=localStorage.getItem(MOBILE_AREA_MODE_KEY)||'auto';
+let detectedMobileArea=null;
+let mobileLocationTimer=null;
+let locationCheckInFlight=false;
 
 function showMsg(el,msg,type=''){
   el.textContent=msg;
@@ -100,6 +106,161 @@ function recurrenceLabel(v){
 }
 function taskArea(t){
   return t.area==='Arbeit'||t.category==='Arbeit'?'Arbeit':'Privat';
+}
+
+function isMobileLayout(){
+  return window.matchMedia('(max-width: 780px)').matches;
+}
+
+function readWorkLocation(){
+  try{
+    const value=JSON.parse(localStorage.getItem(WORK_LOCATION_KEY)||'null');
+    if(!value||!Number.isFinite(value.lat)||!Number.isFinite(value.lon))return null;
+    const radius=Number(value.radius)||300;
+    return{lat:value.lat,lon:value.lon,radius};
+  }catch{
+    return null;
+  }
+}
+
+function saveWorkLocation(lat,lon,radius){
+  localStorage.setItem(WORK_LOCATION_KEY,JSON.stringify({
+    lat:Number(lat),
+    lon:Number(lon),
+    radius:Number(radius)||300,
+    savedAt:new Date().toISOString()
+  }));
+}
+
+function distanceMeters(lat1,lon1,lat2,lon2){
+  const R=6371000;
+  const toRad=v=>v*Math.PI/180;
+  const dLat=toRad(lat2-lat1);
+  const dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2+
+    Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function updateAreaModeButtons(){
+  $('.area-mode').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.areaMode===mobileAreaMode);
+  });
+}
+
+function applyMobileAreaPreference(){
+  const board=document.querySelector('.task-board');
+  const workColumn=document.querySelector('.work-column');
+  const privateColumn=document.querySelector('.private-column');
+  const status=$('#locationContextStatus');
+  const badge=$('#locationBadge');
+  if(!board||!workColumn||!privateColumn||!status||!badge)return;
+
+  board.classList.remove('prefer-work','prefer-private','manual-work','manual-private');
+  workColumn.classList.remove('preferred');
+  privateColumn.classList.remove('preferred');
+  updateAreaModeButtons();
+
+  if(mobileAreaMode==='work'){
+    board.classList.add('manual-work');
+    workColumn.classList.add('preferred');
+    badge.textContent='Arbeit';
+    status.textContent='Manuell auf Arbeit gestellt.';
+    return;
+  }
+
+  if(mobileAreaMode==='private'){
+    board.classList.add('manual-private');
+    privateColumn.classList.add('preferred');
+    badge.textContent='Privat';
+    status.textContent='Manuell auf Privat gestellt.';
+    return;
+  }
+
+  badge.textContent='Auto';
+  const workLocation=readWorkLocation();
+  if(!workLocation){
+    status.textContent='Arbeitsort noch nicht festgelegt. Unter „Standorterkennung einstellen“ kannst du ihn einmal speichern.';
+    return;
+  }
+
+  if(detectedMobileArea==='work'){
+    board.classList.add('prefer-work');
+    workColumn.classList.add('preferred');
+    status.textContent='📍 Arbeitsort erkannt · Arbeit wird bevorzugt angezeigt.';
+  }else if(detectedMobileArea==='private'){
+    board.classList.add('prefer-private');
+    privateColumn.classList.add('preferred');
+    status.textContent='📍 Nicht am Arbeitsort · Privat wird bevorzugt angezeigt.';
+  }else{
+    status.textContent='Arbeitsort gespeichert · Standort wird beim Öffnen der App geprüft.';
+  }
+}
+
+function setMobileAreaMode(mode){
+  if(!['auto','work','private'].includes(mode))mode='auto';
+  mobileAreaMode=mode;
+  localStorage.setItem(MOBILE_AREA_MODE_KEY,mode);
+  applyMobileAreaPreference();
+  if(mode==='auto')checkWorkLocation(true);
+}
+
+function geolocationErrorText(error){
+  if(!error)return 'Standort konnte nicht ermittelt werden.';
+  if(error.code===1)return 'Standortzugriff wurde nicht erlaubt. Du kannst weiterhin manuell zwischen Arbeit und Privat umschalten.';
+  if(error.code===2)return 'Der Standort ist momentan nicht verfügbar.';
+  if(error.code===3)return 'Die Standortabfrage hat zu lange gedauert.';
+  return 'Standort konnte nicht ermittelt werden.';
+}
+
+function checkWorkLocation(force=false){
+  if(!isMobileLayout()||mobileAreaMode!=='auto'||locationCheckInFlight)return;
+  const workLocation=readWorkLocation();
+  if(!workLocation){
+    detectedMobileArea=null;
+    applyMobileAreaPreference();
+    return;
+  }
+  if(!navigator.geolocation){
+    detectedMobileArea=null;
+    $('#locationContextStatus').textContent='Dieser Browser unterstützt keine Standorterkennung.';
+    return;
+  }
+
+  locationCheckInFlight=true;
+  navigator.geolocation.getCurrentPosition(position=>{
+    locationCheckInFlight=false;
+    const {latitude,longitude,accuracy}=position.coords;
+    const distance=distanceMeters(latitude,longitude,workLocation.lat,workLocation.lon);
+    const tolerance=Math.min(Number(accuracy)||0,100);
+    detectedMobileArea=distance<=workLocation.radius+tolerance?'work':'private';
+    applyMobileAreaPreference();
+  },error=>{
+    locationCheckInFlight=false;
+    detectedMobileArea=null;
+    applyMobileAreaPreference();
+    $('#locationContextStatus').textContent=geolocationErrorText(error);
+  },{
+    enableHighAccuracy:false,
+    timeout:10000,
+    maximumAge:force?0:300000
+  });
+}
+
+function startMobileLocationChecks(){
+  if(mobileLocationTimer)clearInterval(mobileLocationTimer);
+  applyMobileAreaPreference();
+  checkWorkLocation();
+  mobileLocationTimer=setInterval(()=>{
+    if(document.visibilityState==='visible')checkWorkLocation();
+  },10*60*1000);
+}
+
+function stopMobileLocationChecks(){
+  if(mobileLocationTimer){
+    clearInterval(mobileLocationTimer);
+    mobileLocationTimer=null;
+  }
 }
 function escapeHtml(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
@@ -232,6 +393,7 @@ function render(){
 
   renderColumn(workTaskList,workList,'Keine Arbeitsaufgaben in dieser Ansicht.');
   renderColumn(privateTaskList,privateList,'Keine privaten Aufgaben in dieser Ansicht.');
+  applyMobileAreaPreference();
 }
 
 async function loadTasks(){
@@ -574,10 +736,74 @@ $('#taskForm').addEventListener('submit',async e=>{
 
 $('#dueMode').addEventListener('change',e=>$('#dueDateWrap').classList.toggle('hidden',e.target.value!=='date'));
 
-$$('.filter').forEach(btn=>btn.addEventListener('click',()=>{
-  $$('.filter').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+$('.filter').forEach(btn=>btn.addEventListener('click',()=>{
+  $('.filter').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
   activeFilter=btn.dataset.filter;render();
 }));
+
+$('.area-mode').forEach(btn=>btn.addEventListener('click',()=>{
+  setMobileAreaMode(btn.dataset.areaMode);
+}));
+
+$('#setWorkLocationBtn').addEventListener('click',()=>{
+  hideMsg($('#locationMsg'));
+  if(!navigator.geolocation){
+    showMsg($('#locationMsg'),'Dieser Browser unterstützt keine Standorterkennung.','error');
+    return;
+  }
+
+  $('#setWorkLocationBtn').disabled=true;
+  $('#setWorkLocationBtn').textContent='Standort wird ermittelt …';
+
+  navigator.geolocation.getCurrentPosition(position=>{
+    $('#setWorkLocationBtn').disabled=false;
+    $('#setWorkLocationBtn').textContent='Arbeitsort hier festlegen';
+
+    const radius=Number($('#workRadius').value)||300;
+    saveWorkLocation(position.coords.latitude,position.coords.longitude,radius);
+    detectedMobileArea='work';
+    mobileAreaMode='auto';
+    localStorage.setItem(MOBILE_AREA_MODE_KEY,'auto');
+    showMsg($('#locationMsg'),'Arbeitsort wurde nur auf diesem Smartphone gespeichert. Automatik ist aktiv.','success');
+    applyMobileAreaPreference();
+  },error=>{
+    $('#setWorkLocationBtn').disabled=false;
+    $('#setWorkLocationBtn').textContent='Arbeitsort hier festlegen';
+    showMsg($('#locationMsg'),geolocationErrorText(error),'error');
+  },{
+    enableHighAccuracy:true,
+    timeout:15000,
+    maximumAge:0
+  });
+});
+
+$('#clearWorkLocationBtn').addEventListener('click',()=>{
+  localStorage.removeItem(WORK_LOCATION_KEY);
+  detectedMobileArea=null;
+  const msg=$('#locationMsg');
+  showMsg(msg,'Der lokal gespeicherte Arbeitsort wurde gelöscht.','success');
+  applyMobileAreaPreference();
+});
+
+$('#workRadius').addEventListener('change',()=>{
+  const workLocation=readWorkLocation();
+  if(!workLocation)return;
+  saveWorkLocation(workLocation.lat,workLocation.lon,Number($('#workRadius').value)||300);
+  checkWorkLocation(true);
+});
+
+const savedWorkLocation=readWorkLocation();
+if(savedWorkLocation)$('#workRadius').value=String(savedWorkLocation.radius);
+updateAreaModeButtons();
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')checkWorkLocation(true);
+});
+window.addEventListener('focus',()=>checkWorkLocation());
+window.matchMedia('(max-width: 780px)').addEventListener?.('change',()=>{
+  applyMobileAreaPreference();
+  checkWorkLocation();
+});
 
 function pushSupported(){
   return 'Notification'in window&&'serviceWorker'in navigator&&'PushManager'in window;
@@ -877,6 +1103,7 @@ async function syncSession(session){
     mfaView.classList.add('hidden');
     appView.classList.add('hidden');
     stopReminderTimer();
+    stopMobileLocationChecks();
     tasks=[];
     render();
     return;
@@ -911,6 +1138,7 @@ async function syncSession(session){
     ensurePushSubscription().then(updateNotifyButton).catch(()=>updateNotifyButton());
   }
   startReminderTimer();
+  startMobileLocationChecks();
 }
 
 db.auth.onAuthStateChange((_event,session)=>{
