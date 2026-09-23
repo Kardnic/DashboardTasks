@@ -18,10 +18,10 @@ const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
 
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
-const authView=$('#authView'),appView=$('#appView');
-const authMsg=$('#authMsg'),taskMsg=$('#taskMsg'),smartMsg=$('#smartMsg'),taskList=$('#taskList');
-const focusList=$('#focusList'),reminderBanner=$('#reminderBanner');
-let tasks=[],activeFilter='today',reminderTimer=null;
+const authView=$('#authView'),mfaView=$('#mfaView'),appView=$('#appView');
+const authMsg=$('#authMsg'),mfaChallengeMsg=$('#mfaChallengeMsg'),taskMsg=$('#taskMsg'),smartMsg=$('#smartMsg'),taskList=$('#taskList');
+const focusList=$('#focusList'),reminderBanner=$('#reminderBanner'),securityMsg=$('#securityMsg');
+let tasks=[],activeFilter='today',reminderTimer=null,pendingEnrollmentFactorId=null;
 
 function showMsg(el,msg,type=''){
   el.textContent=msg;
@@ -671,6 +671,134 @@ function stopReminderTimer(){
   if(reminderTimer){clearInterval(reminderTimer);reminderTimer=null}
 }
 
+async function getVerifiedTotpFactor(){
+  const {data,error}=await db.auth.mfa.listFactors();
+  if(error)throw error;
+  return (data?.totp||[]).find(f=>f.status==='verified')||null;
+}
+
+async function refreshSecurityStatus(){
+  try{
+    const factor=await getVerifiedTotpFactor();
+    $('#mfaStatus').textContent=factor
+      ? '2FA ist aktiv. Datenzugriffe erfordern nach dem Passwort zusätzlich einen Authenticator-Code.'
+      : '2FA ist noch nicht eingerichtet. Für maximalen Kontoschutz solltest du sie aktivieren.';
+    $('#enrollMfaBtn').classList.toggle('hidden',!!factor);
+  }catch(error){
+    $('#mfaStatus').textContent='Sicherheitsstatus konnte nicht geladen werden.';
+  }
+}
+
+async function needsMfaChallenge(){
+  const {data,error}=await db.auth.mfa.getAuthenticatorAssuranceLevel();
+  if(error)throw error;
+  return data?.currentLevel==='aal1'&&data?.nextLevel==='aal2';
+}
+
+async function verifyTotpCode(code){
+  const factor=await getVerifiedTotpFactor();
+  if(!factor)throw new Error('Kein verifizierter Authenticator-Faktor gefunden.');
+  const {data:challenge,error:challengeError}=await db.auth.mfa.challenge({factorId:factor.id});
+  if(challengeError)throw challengeError;
+  const {error:verifyError}=await db.auth.mfa.verify({
+    factorId:factor.id,
+    challengeId:challenge.id,
+    code
+  });
+  if(verifyError)throw verifyError;
+}
+
+$('#mfaChallengeForm').addEventListener('submit',async e=>{
+  e.preventDefault();hideMsg(mfaChallengeMsg);
+  const code=$('#mfaChallengeCode').value.trim();
+  if(!/^\d{6}$/.test(code)){
+    showMsg(mfaChallengeMsg,'Bitte einen 6-stelligen Code eingeben.','error');
+    return;
+  }
+  try{
+    await verifyTotpCode(code);
+    $('#mfaChallengeCode').value='';
+    const {data:{session}}=await db.auth.getSession();
+    await syncSession(session);
+  }catch(error){
+    showMsg(mfaChallengeMsg,'Code ungültig oder abgelaufen. Bitte erneut versuchen.','error');
+  }
+});
+
+$('#mfaLogoutBtn').addEventListener('click',async()=>{
+  try{await removePushSubscription()}catch(e){}
+  await db.auth.signOut();
+});
+
+$('#securityBtn').addEventListener('click',async()=>{
+  $('#securityPanel').classList.toggle('hidden');
+  if(!$('#securityPanel').classList.contains('hidden'))await refreshSecurityStatus();
+});
+$('#closeSecurityBtn').addEventListener('click',()=>$('#securityPanel').classList.add('hidden'));
+
+$('#enrollMfaBtn').addEventListener('click',async()=>{
+  hideMsg(securityMsg);
+  try{
+    const {data:factors,error:listError}=await db.auth.mfa.listFactors();
+    if(listError)throw listError;
+    for(const factor of (factors?.totp||[])){
+      if(factor.status!=='verified'){
+        try{await db.auth.mfa.unenroll({factorId:factor.id})}catch(e){}
+      }
+    }
+
+    const {data,error}=await db.auth.mfa.enroll({
+      factorType:'totp',
+      friendlyName:'DashboardTasks'
+    });
+    if(error)throw error;
+
+    pendingEnrollmentFactorId=data.id;
+    $('#mfaQr').src=data.totp.qr_code;
+    $('#mfaSecret').textContent=data.totp.secret;
+    $('#mfaEnrollCode').value='';
+    $('#mfaEnrollBox').classList.remove('hidden');
+    $('#mfaEnrollCode').focus();
+  }catch(error){
+    showMsg(securityMsg,'2FA-Einrichtung konnte nicht gestartet werden: '+(error.message||error),'error');
+  }
+});
+
+$('#mfaEnrollForm').addEventListener('submit',async e=>{
+  e.preventDefault();hideMsg(securityMsg);
+  const code=$('#mfaEnrollCode').value.trim();
+  if(!pendingEnrollmentFactorId||!/^\d{6}$/.test(code)){
+    showMsg(securityMsg,'Bitte einen gültigen 6-stelligen Code eingeben.','error');
+    return;
+  }
+
+  try{
+    const {data:challenge,error:challengeError}=await db.auth.mfa.challenge({
+      factorId:pendingEnrollmentFactorId
+    });
+    if(challengeError)throw challengeError;
+
+    const {error:verifyError}=await db.auth.mfa.verify({
+      factorId:pendingEnrollmentFactorId,
+      challengeId:challenge.id,
+      code
+    });
+    if(verifyError)throw verifyError;
+
+    pendingEnrollmentFactorId=null;
+    $('#mfaEnrollBox').classList.add('hidden');
+    $('#mfaQr').removeAttribute('src');
+    $('#mfaSecret').textContent='';
+    showMsg(securityMsg,'2FA ist aktiv. Künftige Anmeldungen benötigen zusätzlich deinen Authenticator-Code.','success');
+    await refreshSecurityStatus();
+
+    const {data:{session}}=await db.auth.getSession();
+    await syncSession(session);
+  }catch(error){
+    showMsg(securityMsg,'Der Code konnte nicht bestätigt werden. Bitte prüfe ihn und versuche es erneut.','error');
+  }
+});
+
 $('#loginForm').addEventListener('submit',async e=>{
   e.preventDefault();hideMsg(authMsg);
   const email=$('#email').value.trim(),password=$('#password').value;
@@ -685,19 +813,46 @@ $('#logoutBtn').addEventListener('click',async()=>{
 
 async function syncSession(session){
   const loggedIn=!!session;
-  authView.classList.toggle('hidden',loggedIn);
-  appView.classList.toggle('hidden',!loggedIn);
-  if(loggedIn){
-    await loadTasks();
-    if(pushSupported()&&Notification.permission==='granted'){
-      ensurePushSubscription().then(updateNotifyButton).catch(()=>updateNotifyButton());
-    }
-    startReminderTimer();
-  }else{
+
+  if(!loggedIn){
+    authView.classList.remove('hidden');
+    mfaView.classList.add('hidden');
+    appView.classList.add('hidden');
     stopReminderTimer();
     tasks=[];
     render();
+    return;
   }
+
+  authView.classList.add('hidden');
+
+  try{
+    if(await needsMfaChallenge()){
+      mfaView.classList.remove('hidden');
+      appView.classList.add('hidden');
+      stopReminderTimer();
+      tasks=[];
+      render();
+      $('#mfaChallengeCode').focus();
+      return;
+    }
+  }catch(error){
+    mfaView.classList.remove('hidden');
+    appView.classList.add('hidden');
+    stopReminderTimer();
+    showMsg(mfaChallengeMsg,'Die Sicherheitsprüfung konnte nicht abgeschlossen werden. Bitte erneut anmelden.','error');
+    return;
+  }
+
+  mfaView.classList.add('hidden');
+  appView.classList.remove('hidden');
+  await loadTasks();
+  await refreshSecurityStatus();
+
+  if(pushSupported()&&Notification.permission==='granted'){
+    ensurePushSubscription().then(updateNotifyButton).catch(()=>updateNotifyButton());
+  }
+  startReminderTimer();
 }
 
 db.auth.onAuthStateChange((_event,session)=>{
