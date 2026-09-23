@@ -2,6 +2,8 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; connect-src 'self' https://hfpryzswevnpmqdaidzj.supabase.co wss://hfpryzswevnpmqdaidzj.supabase.co; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; manifest-src 'self'; worker-src 'self'; frame-src 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#1769aa">
   <title>Aufgaben Dashboard</title>
@@ -17,10 +19,8 @@
       <form id="loginForm" class="form">
         <label>E-Mail<input id="email" type="email" autocomplete="email" required></label>
         <label>Passwort<input id="password" type="password" autocomplete="current-password" minlength="6" required></label>
-        <div class="row">
-          <button class="primary" type="submit">Anmelden</button>
-          <button id="signupBtn" class="ghost" type="button">Konto anlegen</button>
-        </div>
+        <button class="primary" type="submit">Anmelden</button>
+        <div class="muted">Neue Konten können nicht über diese App angelegt werden.</div>
         <div id="authMsg" class="notice hidden" aria-live="polite"></div>
       </form>
     </section>
@@ -167,7 +167,7 @@
     </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.0/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
   <script src="./app.js"></script>
 </body>
 </html>
