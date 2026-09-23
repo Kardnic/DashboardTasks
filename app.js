@@ -737,12 +737,12 @@ $('#taskForm').addEventListener('submit',async e=>{
 
 $('#dueMode').addEventListener('change',e=>$('#dueDateWrap').classList.toggle('hidden',e.target.value!=='date'));
 
-$('.filter').forEach(btn=>btn.addEventListener('click',()=>{
-  $('.filter').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+document.querySelectorAll('.filter').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.filter').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
   activeFilter=btn.dataset.filter;render();
 }));
 
-$('.area-mode').forEach(btn=>btn.addEventListener('click',()=>{
+document.querySelectorAll('.area-mode').forEach(btn=>btn.addEventListener('click',()=>{
   setMobileAreaMode(btn.dataset.areaMode);
 }));
 
