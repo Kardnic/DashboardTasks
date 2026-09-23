@@ -1,5 +1,6 @@
 const SUPABASE_URL='https://hfpryzswevnpmqdaidzj.supabase.co';
 const SUPABASE_KEY='sb_publishable_odMpT_m3G4RihPHoaYFMKA_fz7NPVsy';
+const VAPID_PUBLIC_KEY='BGf1lCSlipuQpSXW6LL6WEMc_xMuI5IdNajm5qGbEW1Z7RlIN4t_YvEbR3sZTA5Ti1AM8Bk5o0D22enP0uYFxmQ';
 const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
   auth:{
     persistSession:true,
@@ -24,7 +25,7 @@ function showMsg(el,msg,type=''){
 function hideMsg(el){el.classList.add('hidden')}
 function schemaHint(error){
   const msg=error&&error.message?error.message:String(error||'');
-  if(/waiting_for|recurrence|reminder_at|reminded_at|next_recurrence_created/i.test(msg)){
+  if(/waiting_for|recurrence|reminder_at|reminded_at|next_recurrence_created|push_subscriptions|p256dh/i.test(msg)){
     return ' Die Supabase-Datenbank muss noch mit der aktuellen supabase/schema.sql erweitert werden.';
   }
   return '';
@@ -188,7 +189,7 @@ async function loadTasks(){
   if(error){showMsg(taskMsg,'Fehler beim Laden: '+error.message+schemaHint(error),'error');return}
   tasks=data||[];
   render();
-  updateNotifyButton();
+  await updateNotifyButton();
   checkReminders();
 }
 
@@ -511,26 +512,96 @@ $$('.filter').forEach(btn=>btn.addEventListener('click',()=>{
   activeFilter=btn.dataset.filter;render();
 }));
 
-function updateNotifyButton(){
-  const btn=$('#notifyBtn');
-  if(!('Notification'in window)){
-    btn.disabled=true;btn.textContent='🔕 Nicht unterstützt';return;
+function pushSupported(){
+  return 'Notification'in window&&'serviceWorker'in navigator&&'PushManager'in window;
+}
+function urlBase64ToUint8Array(base64String){
+  const padding='='.repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64);
+  return Uint8Array.from([...raw].map(ch=>ch.charCodeAt(0)));
+}
+async function savePushSubscription(subscription){
+  const {data:{session}}=await db.auth.getSession();
+  if(!session)throw new Error('Nicht angemeldet');
+  const json=subscription.toJSON();
+  const keys=json.keys||{};
+  if(!json.endpoint||!keys.p256dh||!keys.auth)throw new Error('Push-Abo ist unvollständig');
+  const {error}=await db.from('push_subscriptions').upsert({
+    user_id:session.user.id,
+    endpoint:json.endpoint,
+    p256dh:keys.p256dh,
+    auth:keys.auth,
+    updated_at:new Date().toISOString()
+  },{onConflict:'user_id,endpoint'});
+  if(error)throw error;
+}
+async function ensurePushSubscription(){
+  if(!pushSupported())throw new Error('Web Push wird von diesem Browser nicht unterstützt.');
+  const registration=await navigator.serviceWorker.ready;
+  let subscription=await registration.pushManager.getSubscription();
+  if(!subscription){
+    subscription=await registration.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
   }
-  if(Notification.permission==='granted')btn.textContent='🔔 Erinnerungen aktiv';
-  else if(Notification.permission==='denied')btn.textContent='🔕 Blockiert';
-  else btn.textContent='🔔 Erinnerungen';
+  await savePushSubscription(subscription);
+  return subscription;
+}
+async function removePushSubscription(){
+  if(!pushSupported())return;
+  const registration=await navigator.serviceWorker.ready;
+  const subscription=await registration.pushManager.getSubscription();
+  if(!subscription)return;
+  try{
+    await db.from('push_subscriptions').delete().eq('endpoint',subscription.endpoint);
+  }catch(e){}
+  try{await subscription.unsubscribe()}catch(e){}
+}
+async function updateNotifyButton(){
+  const btn=$('#notifyBtn');
+  if(!pushSupported()){
+    btn.disabled=true;btn.textContent='🔕 Push nicht unterstützt';return;
+  }
+  btn.disabled=false;
+  if(Notification.permission==='denied'){
+    btn.textContent='🔕 Push blockiert';return;
+  }
+  if(Notification.permission!=='granted'){
+    btn.textContent='🔔 Push aktivieren';return;
+  }
+  try{
+    const registration=await navigator.serviceWorker.ready;
+    const subscription=await registration.pushManager.getSubscription();
+    btn.textContent=subscription?'🔔 Push aktiv':'🔔 Push verbinden';
+  }catch{
+    btn.textContent='🔔 Push verbinden';
+  }
 }
 $('#notifyBtn').addEventListener('click',async()=>{
-  if(!('Notification'in window))return;
-  const permission=await Notification.requestPermission();
-  updateNotifyButton();
-  if(permission==='granted'){
-    reminderBanner.textContent='Browser-Erinnerungen sind aktiviert.';
+  if(!pushSupported()){
+    reminderBanner.textContent='Dieser Browser unterstützt Web Push nicht.';
     reminderBanner.classList.remove('hidden');
-    setTimeout(()=>reminderBanner.classList.add('hidden'),3000);
+    return;
+  }
+  try{
+    let permission=Notification.permission;
+    if(permission!=='granted')permission=await Notification.requestPermission();
+    if(permission!=='granted'){
+      reminderBanner.textContent='Benachrichtigungen wurden nicht erlaubt. Erinnerungen funktionieren weiterhin, solange das Dashboard geöffnet ist.';
+      reminderBanner.classList.remove('hidden');
+      await updateNotifyButton();
+      return;
+    }
+    await ensurePushSubscription();
+    await updateNotifyButton();
+    reminderBanner.textContent='Push-Erinnerungen sind für dieses Gerät aktiviert – auch bei geschlossener App.';
+    reminderBanner.classList.remove('hidden');
+    setTimeout(()=>reminderBanner.classList.add('hidden'),4500);
     checkReminders();
-  }else{
-    reminderBanner.textContent='Benachrichtigungen wurden nicht erlaubt. Fällige Erinnerungen werden weiterhin im geöffneten Dashboard angezeigt.';
+  }catch(error){
+    reminderBanner.textContent='Push konnte nicht aktiviert werden: '+(error.message||error)+schemaHint(error);
     reminderBanner.classList.remove('hidden');
   }
 });
@@ -592,7 +663,10 @@ $('#signupBtn').addEventListener('click',async()=>{
   else showMsg(authMsg,'Konto angelegt. Falls E-Mail-Bestätigung aktiviert ist, bestätige zuerst die Mail.','success');
 });
 
-$('#logoutBtn').addEventListener('click',()=>db.auth.signOut());
+$('#logoutBtn').addEventListener('click',async()=>{
+  await removePushSubscription();
+  await db.auth.signOut();
+});
 
 async function syncSession(session){
   const loggedIn=!!session;
@@ -600,6 +674,9 @@ async function syncSession(session){
   appView.classList.toggle('hidden',!loggedIn);
   if(loggedIn){
     await loadTasks();
+    if(pushSupported()&&Notification.permission==='granted'){
+      ensurePushSubscription().then(updateNotifyButton).catch(()=>updateNotifyButton());
+    }
     startReminderTimer();
   }else{
     stopReminderTimer();
