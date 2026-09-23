@@ -12,9 +12,21 @@ create table if not exists public.tasks (
   completed boolean not null default false,
   completed_at timestamptz,
   source text not null default 'text' check (source in ('text','voice')),
+  waiting_for boolean not null default false,
+  recurrence text not null default 'none',
+  reminder_at timestamptz,
+  reminded_at timestamptz,
+  next_recurrence_created boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Bestehende Installationen sicher erweitern:
+alter table public.tasks add column if not exists waiting_for boolean not null default false;
+alter table public.tasks add column if not exists recurrence text not null default 'none';
+alter table public.tasks add column if not exists reminder_at timestamptz;
+alter table public.tasks add column if not exists reminded_at timestamptz;
+alter table public.tasks add column if not exists next_recurrence_created boolean not null default false;
 
 alter table public.tasks enable row level security;
 
@@ -65,3 +77,5 @@ for each row execute function public.set_updated_at();
 
 create index if not exists tasks_user_due_idx on public.tasks(user_id, due_at);
 create index if not exists tasks_user_completed_idx on public.tasks(user_id, completed);
+create index if not exists tasks_user_waiting_idx on public.tasks(user_id, waiting_for);
+create index if not exists tasks_user_reminder_idx on public.tasks(user_id, reminder_at);
