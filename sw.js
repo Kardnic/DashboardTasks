@@ -1,4 +1,4 @@
-const CACHE='dashboardtasks-v7-settings';
+const CACHE='dashboardtasks-v8-loginfix';
 const ASSETS=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
