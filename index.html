@@ -25,6 +25,19 @@
       </form>
     </section>
 
+    <section id="mfaView" class="auth card hidden">
+      <div class="brand">Zweite Bestätigung erforderlich</div>
+      <p class="muted">Für dieses Konto ist Zwei-Faktor-Authentifizierung aktiv. Gib den 6-stelligen Code deiner Authenticator-App ein.</p>
+      <form id="mfaChallengeForm" class="form">
+        <label>Authenticator-Code
+          <input id="mfaChallengeCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+        </label>
+        <button class="primary" type="submit">Sicher anmelden</button>
+        <button id="mfaLogoutBtn" class="ghost" type="button">Abbrechen und abmelden</button>
+        <div id="mfaChallengeMsg" class="notice hidden" aria-live="polite"></div>
+      </form>
+    </section>
+
     <section id="appView" class="hidden">
       <header class="topbar">
         <div>
@@ -32,10 +45,39 @@
           <div id="todayLabel" class="muted"></div>
         </div>
         <div class="top-actions">
+          <button id="securityBtn" class="ghost" type="button">🔐 Sicherheit</button>
           <button id="notifyBtn" class="ghost" type="button">🔔 Erinnerungen</button>
           <button id="logoutBtn" class="ghost" type="button">Abmelden</button>
         </div>
       </header>
+
+      <section id="securityPanel" class="card security-panel hidden">
+        <div class="section-head">
+          <div>
+            <h2>Kontosicherheit</h2>
+            <div id="mfaStatus" class="muted">Sicherheitsstatus wird geprüft …</div>
+          </div>
+          <button id="closeSecurityBtn" class="ghost" type="button">Schließen</button>
+        </div>
+
+        <div class="security-actions">
+          <button id="enrollMfaBtn" class="primary" type="button">2FA mit Authenticator einrichten</button>
+        </div>
+
+        <div id="mfaEnrollBox" class="mfa-enroll hidden">
+          <p>Scanne den QR-Code mit deiner Authenticator-App und bestätige anschließend den 6-stelligen Code.</p>
+          <img id="mfaQr" class="mfa-qr" alt="QR-Code für Zwei-Faktor-Authentifizierung">
+          <div class="muted">Falls Scannen nicht geht:</div>
+          <code id="mfaSecret" class="mfa-secret"></code>
+          <form id="mfaEnrollForm" class="form">
+            <label>Bestätigungscode
+              <input id="mfaEnrollCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+            </label>
+            <button class="primary" type="submit">2FA aktivieren</button>
+          </form>
+        </div>
+        <div id="securityMsg" class="notice hidden" aria-live="polite"></div>
+      </section>
 
       <div id="reminderBanner" class="notice reminder-banner hidden" aria-live="assertive"></div>
 
