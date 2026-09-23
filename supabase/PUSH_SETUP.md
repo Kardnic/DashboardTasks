@@ -1,26 +1,32 @@
-# Echte Push-Erinnerungen
+# DashboardTasks security / push architecture
 
-Die Push-Infrastruktur ist für dieses Projekt bereits eingerichtet.
+Production is configured so that no private server secret is stored in this repository.
 
-## Aktiver Aufbau
+## Push security
 
-- Browser/PWA registriert ein Web-Push-Abo in `push_subscriptions`.
-- RLS schützt die Push-Abos pro Benutzer.
-- Der private VAPID-Schlüssel liegt verschlüsselt in Supabase Vault.
-- `send-reminders` läuft als Supabase Edge Function.
-- `pg_cron` ruft die Funktion jede Minute auf.
-- Abgelaufene Push-Abos werden automatisch entfernt.
+- Web Push subscriptions are stored per user with RLS.
+- The VAPID private key is encrypted in Supabase Vault.
+- The reminder Edge Function is callable only with a high-entropy secret generated inside Postgres and stored in Vault.
+- The public Supabase publishable key is **not** treated as authentication for server jobs.
+- The pg_cron job reads the secret from Vault and invokes `send-reminders` every minute.
+- The retired `setup-push` function is disabled in production and intentionally absent from source.
 
-## Smartphone aktivieren
+## Data access
 
-1. Dashboard/PWA neu laden.
-2. Oben auf **Push aktivieren** tippen.
-3. Benachrichtigungen erlauben.
-4. Eine Testaufgabe mit Erinnerung wenige Minuten in der Zukunft anlegen.
-5. Die App schließen und auf die Push-Erinnerung warten.
+- Anonymous users have no table privileges.
+- Authenticated users receive only the columns/actions needed by the UI.
+- `user_id`, creation timestamps and server-maintained timestamps cannot be forged by the browser.
+- RLS requires both ownership and membership in `app_private.allowed_users`.
+- New Auth accounts are not automatically added to the allowlist.
 
-Falls das Gerät noch ein Push-Abo mit einem älteren VAPID-Schlüssel besitzt, erkennt die App dies und registriert automatisch ein neues Abo.
+## Browser
 
-## iPhone/iPad
+- Content Security Policy limits scripts, network access, workers and resources.
+- Supabase JS is pinned to an exact version.
+- The app does not expose account creation.
+- Persisted sessions are validated against Supabase on startup.
+- Task metadata is rendered with `textContent`, not dynamic HTML.
 
-Für Web Push die Webseite als Web-App zum Home-Bildschirm hinzufügen und von dort öffnen.
+## Remaining dashboard controls
+
+For maximum account security also enable Supabase Auth leaked-password protection and, if desired, passkeys/MFA in the Supabase Dashboard.
