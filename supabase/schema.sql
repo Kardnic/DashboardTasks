@@ -10,6 +10,8 @@ create table if not exists public.tasks (
   description text check (description is null or char_length(description) <= 1000),
   category text not null default 'Inbox'
     check (category in ('Inbox','Arbeit','Privat','JS Wenau','Projekte','Sonstiges')),
+  area text not null default 'Privat'
+    check (area in ('Arbeit','Privat')),
   priority text not null default 'normal'
     check (priority in ('niedrig','normal','hoch')),
   due_at timestamptz,
@@ -33,6 +35,17 @@ alter table public.tasks add column if not exists recurrence text not null defau
 alter table public.tasks add column if not exists reminder_at timestamptz;
 alter table public.tasks add column if not exists reminded_at timestamptz;
 alter table public.tasks add column if not exists next_recurrence_created boolean not null default false;
+alter table public.tasks add column if not exists area text not null default 'Privat';
+
+update public.tasks
+set area = case
+  when category = 'Arbeit'
+    or lower(coalesce(title,'')) ~ '(arbeit|firma|betrieb|maschine|anlage|produktion|wartung|instandhaltung|sps|codesys|menke|hydraulik|audit|lieferant|kunde|schicht)'
+    or lower(coalesce(description,'')) ~ '(arbeit|firma|betrieb|maschine|anlage|produktion|wartung|instandhaltung|sps|codesys|menke|hydraulik|audit|lieferant|kunde|schicht)'
+  then 'Arbeit'
+  else 'Privat'
+end
+where area is null or area not in ('Arbeit','Privat');
 
 do $$
 begin
@@ -55,6 +68,11 @@ begin
     alter table public.tasks add constraint tasks_description_max_length
       check (description is null or char_length(description) <= 1000) not valid;
     alter table public.tasks validate constraint tasks_description_max_length;
+  end if;
+  if not exists (select 1 from pg_constraint where conname='tasks_area_allowed') then
+    alter table public.tasks add constraint tasks_area_allowed
+      check (area in ('Arbeit','Privat')) not valid;
+    alter table public.tasks validate constraint tasks_area_allowed;
   end if;
 end $$;
 
@@ -193,11 +211,11 @@ revoke all on table public.push_subscriptions from anon, authenticated;
 
 grant select, delete on table public.tasks to authenticated;
 grant insert (
-  title, description, category, priority, due_at, source,
+  title, description, category, area, priority, due_at, source,
   waiting_for, recurrence, reminder_at
 ) on table public.tasks to authenticated;
 grant update (
-  title, description, category, priority, due_at, completed, source,
+  title, description, category, area, priority, due_at, completed, source,
   waiting_for, recurrence, reminder_at, reminded_at, next_recurrence_created
 ) on table public.tasks to authenticated;
 
@@ -235,6 +253,7 @@ create index if not exists tasks_user_due_idx on public.tasks(user_id, due_at);
 create index if not exists tasks_user_completed_idx on public.tasks(user_id, completed);
 create index if not exists tasks_user_waiting_idx on public.tasks(user_id, waiting_for);
 create index if not exists tasks_user_reminder_idx on public.tasks(user_id, reminder_at);
+create index if not exists tasks_user_area_idx on public.tasks(user_id, area);
 create index if not exists push_subscriptions_user_idx on public.push_subscriptions(user_id);
 
 -- Backend-only Vault accessors.
