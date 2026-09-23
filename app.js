@@ -1,6 +1,6 @@
 const SUPABASE_URL='https://hfpryzswevnpmqdaidzj.supabase.co';
 const SUPABASE_KEY='sb_publishable_odMpT_m3G4RihPHoaYFMKA_fz7NPVsy';
-const VAPID_PUBLIC_KEY='BLmHiuJ2ib_trypUwxV58QC1UqF44g-QVxW2BWzwomU-f3KocNmTmLvux2f10C6tscYJR-Zlg-lJakfJ_nxa3fI';
+const VAPID_PUBLIC_KEY='BLi3pd0LO6c-v87cuQ9Htd1vtRGegpYUBS6WHSqn2oh0DP0ABFE9BW2shmu3hp5L9lSJ_VLExI-MxAc5O5kANrA';
 const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
   auth:{
     persistSession:true,
@@ -536,14 +536,30 @@ async function savePushSubscription(subscription){
   },{onConflict:'user_id,endpoint'});
   if(error)throw error;
 }
+function sameBytes(a,b){
+  if(a.length!==b.length)return false;
+  for(let i=0;i<a.length;i++)if(a[i]!==b[i])return false;
+  return true;
+}
 async function ensurePushSubscription(){
   if(!pushSupported())throw new Error('Web Push wird von diesem Browser nicht unterstützt.');
   const registration=await navigator.serviceWorker.ready;
+  const expectedKey=urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
   let subscription=await registration.pushManager.getSubscription();
+
+  if(subscription&&subscription.options&&subscription.options.applicationServerKey){
+    const currentKey=new Uint8Array(subscription.options.applicationServerKey);
+    if(!sameBytes(currentKey,expectedKey)){
+      try{await db.from('push_subscriptions').delete().eq('endpoint',subscription.endpoint)}catch(e){}
+      try{await subscription.unsubscribe()}catch(e){}
+      subscription=null;
+    }
+  }
+
   if(!subscription){
     subscription=await registration.pushManager.subscribe({
       userVisibleOnly:true,
-      applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      applicationServerKey:expectedKey
     });
   }
   await savePushSubscription(subscription);
