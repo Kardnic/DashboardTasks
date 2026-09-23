@@ -2,7 +2,6 @@ package de.kardnic.dashboardtasks.widget
 
 import android.content.Context
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.postgrest.decodeList
 import io.github.jan.supabase.postgrest.from
 
 class TaskRepository(private val context: Context) {
