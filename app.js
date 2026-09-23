@@ -1,11 +1,17 @@
 const SUPABASE_URL='https://hfpryzswevnpmqdaidzj.supabase.co';
 const SUPABASE_KEY='sb_publishable_odMpT_m3G4RihPHoaYFMKA_fz7NPVsy';
 const VAPID_PUBLIC_KEY='BLi3pd0LO6c-v87cuQ9Htd1vtRGegpYUBS6WHSqn2oh0DP0ABFE9BW2shmu3hp5L9lSJ_VLExI-MxAc5O5kANrA';
+
+if(window.top!==window.self){
+  document.documentElement.textContent='';
+  throw new Error('Framing blocked');
+}
+
 const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
   auth:{
     persistSession:true,
     autoRefreshToken:true,
-    detectSessionInUrl:true,
+    detectSessionInUrl:false,
     storage:window.localStorage
   }
 });
@@ -669,7 +675,7 @@ $('#loginForm').addEventListener('submit',async e=>{
   e.preventDefault();hideMsg(authMsg);
   const email=$('#email').value.trim(),password=$('#password').value;
   const {error}=await db.auth.signInWithPassword({email,password});
-  if(error)showMsg(authMsg,error.message,'error');
+  if(error)showMsg(authMsg,'Anmeldung fehlgeschlagen. Bitte Zugangsdaten prüfen.','error');
 });
 
 $('#logoutBtn').addEventListener('click',async()=>{
@@ -694,8 +700,22 @@ async function syncSession(session){
   }
 }
 
-db.auth.onAuthStateChange((_event,session)=>syncSession(session));
-db.auth.getSession().then(({data})=>syncSession(data.session));
+db.auth.onAuthStateChange((_event,session)=>{
+  setTimeout(()=>syncSession(session),0);
+});
+
+(async()=>{
+  const {data:{session}}=await db.auth.getSession();
+  if(session){
+    const {data:{user},error}=await db.auth.getUser();
+    if(error||!user){
+      await db.auth.signOut();
+      await syncSession(null);
+      return;
+    }
+  }
+  await syncSession(session);
+})();
 
 $('#todayLabel').textContent=new Intl.DateTimeFormat('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date());
 updateNotifyButton();
