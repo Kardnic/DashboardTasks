@@ -45,9 +45,16 @@
 
         <form id="smartForm" class="smart-form">
           <label class="sr-only" for="smartInput">Aufgabe natürlich eingeben</label>
-          <textarea id="smartInput" rows="2" maxlength="360" placeholder="z. B. Freitag um 10 Uhr bei Menke anrufen, hohe Priorität, Arbeit"></textarea>
+          <div class="smart-input-row">
+            <textarea id="smartInput" rows="2" maxlength="360" placeholder="z. B. Freitag um 10 Uhr bei Menke anrufen, hohe Priorität, Arbeit"></textarea>
+            <button id="micBtn" class="ghost mic-btn" type="button" aria-label="Spracheingabe starten" title="Aufgabe einsprechen">
+              <span class="mic-icon" aria-hidden="true">🎤</span>
+              <span id="micLabel" class="mic-label">Sprechen</span>
+            </button>
+          </div>
           <button class="primary smart-save" type="submit">Erkannte Aufgabe speichern</button>
         </form>
+        <div id="micStatus" class="mic-status muted hidden" aria-live="polite"></div>
 
         <div id="smartPreview" class="smart-preview hidden" aria-live="polite">
           <div class="preview-label">Erkannt</div>
