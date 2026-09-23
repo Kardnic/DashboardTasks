@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "de.kardnic.dashboardtasks.widget"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "de.kardnic.dashboardtasks.widget"
