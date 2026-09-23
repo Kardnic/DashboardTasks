@@ -3,9 +3,6 @@ import webpush from "npm:web-push@3.6.7";
 
 const VAPID_PUBLIC_KEY = "BLi3pd0LO6c-v87cuQ9Htd1vtRGegpYUBS6WHSqn2oh0DP0ABFE9BW2shmu3hp5L9lSJ_VLExI-MxAc5O5kANrA";
 
-const publishableKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}");
-const validPublishableKeys = new Set(Object.values(publishableKeys));
-
 const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
 const serviceKey = secretKeys.default ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 if (!serviceKey) throw new Error("Supabase admin key unavailable");
@@ -16,18 +13,26 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
+function safeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
-  const apiKey = req.headers.get("apikey");
-  if (!apiKey || !validPublishableKeys.has(apiKey)) {
+  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+
+  const suppliedSecret = req.headers.get("x-cron-secret") ?? "";
+  const { data: expectedSecret, error: secretError } = await supabase.rpc("get_cron_secret");
+
+  if (secretError || !expectedSecret || !safeEqual(suppliedSecret, expectedSecret)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
   const { data: vapidPrivateKey, error: vapidError } = await supabase.rpc("get_vapid_private");
   if (vapidError || !vapidPrivateKey) {
-    return Response.json(
-      { error: vapidError?.message ?? "VAPID private key unavailable", vapidConfigured: false },
-      { status: 503 }
-    );
+    return Response.json({ error: "Push configuration unavailable" }, { status: 503 });
   }
 
   webpush.setVapidDetails(
@@ -49,9 +54,7 @@ Deno.serve(async (req) => {
     .gte("reminder_at", oneDayAgo.toISOString())
     .limit(100);
 
-  if (taskError) {
-    return Response.json({ error: taskError.message, vapidConfigured: true }, { status: 500 });
-  }
+  if (taskError) return Response.json({ error: "Database query failed" }, { status: 500 });
 
   let notificationsSent = 0;
   let tasksMarked = 0;
@@ -83,14 +86,14 @@ Deno.serve(async (req) => {
       } catch (error) {
         const statusCode =
           typeof error === "object" && error && "statusCode" in error
-            ? Number(error.statusCode)
+            ? Number((error as { statusCode?: number }).statusCode)
             : 0;
 
         if (statusCode === 404 || statusCode === 410) {
           await supabase.from("push_subscriptions").delete().eq("id", sub.id);
           expiredSubscriptionsRemoved++;
         } else {
-          console.error("Push failed", task.id, statusCode, error);
+          console.error("Push delivery failed", task.id, statusCode);
         }
       }
     }
@@ -101,12 +104,13 @@ Deno.serve(async (req) => {
         .update({ reminded_at: new Date().toISOString() })
         .eq("id", task.id)
         .is("reminded_at", null);
+
       if (!markError) tasksMarked++;
     }
   }
 
   return Response.json({
-    vapidConfigured: true,
+    ok: true,
     checked: tasks?.length ?? 0,
     notificationsSent,
     tasksMarked,
