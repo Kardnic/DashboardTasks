@@ -36,6 +36,51 @@ function showMsg(el,msg,type=''){
   el.classList.remove('hidden');
 }
 function hideMsg(el){el.classList.add('hidden')}
+
+const loginForm=document.getElementById('loginForm');
+if(loginForm){
+  loginForm.addEventListener('submit',async e=>{
+    e.preventDefault();
+    hideMsg(authMsg);
+    const email=document.getElementById('email')?.value.trim()||'';
+    const password=document.getElementById('password')?.value||'';
+    const submit=loginForm.querySelector('button[type="submit"]');
+
+    if(!email||!password){
+      showMsg(authMsg,'Bitte E-Mail und Passwort eingeben.','error');
+      return;
+    }
+
+    if(submit){
+      submit.disabled=true;
+      submit.textContent='Anmeldung läuft …';
+    }
+
+    try{
+      const {data,error}=await db.auth.signInWithPassword({email,password});
+      if(error){
+        showMsg(authMsg,'Anmeldung fehlgeschlagen. Bitte Zugangsdaten prüfen.','error');
+        return;
+      }
+      if(!data?.session){
+        showMsg(authMsg,'Die Anmeldung wurde nicht abgeschlossen. Bitte erneut versuchen.','error');
+      }
+    }catch(error){
+      showMsg(authMsg,'Verbindung zur Anmeldung fehlgeschlagen. Bitte Internetverbindung prüfen und erneut versuchen.','error');
+    }finally{
+      if(submit){
+        submit.disabled=false;
+        submit.textContent='Anmelden';
+      }
+    }
+  });
+}
+function safeUiInit(fn){
+  try{fn()}catch(error){
+    console.error('Optionale UI-Funktion konnte nicht initialisiert werden',error);
+  }
+}
+
 function schemaHint(error){
   const msg=error&&error.message?error.message:String(error||'');
   if(/waiting_for|recurrence|reminder_at|reminded_at|next_recurrence_created|push_subscriptions|p256dh/i.test(msg)){
@@ -1101,13 +1146,6 @@ $('#mfaEnrollForm').addEventListener('submit',async e=>{
   }catch(error){
     showMsg(securityMsg,'Der Code konnte nicht bestätigt werden. Bitte prüfe ihn und versuche es erneut.','error');
   }
-});
-
-$('#loginForm').addEventListener('submit',async e=>{
-  e.preventDefault();hideMsg(authMsg);
-  const email=$('#email').value.trim(),password=$('#password').value;
-  const {error}=await db.auth.signInWithPassword({email,password});
-  if(error)showMsg(authMsg,'Anmeldung fehlgeschlagen. Bitte Zugangsdaten prüfen.','error');
 });
 
 $('#logoutBtn').addEventListener('click',async()=>{
