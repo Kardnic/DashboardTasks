@@ -1236,4 +1236,13 @@ async function syncSession(session){
 $('#todayLabel').textContent=new Intl.DateTimeFormat('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date());
 updateNotifyButton();
 
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+if('serviceWorker'in navigator){
+  window.addEventListener('load',async()=>{
+    try{
+      const registration=await navigator.serviceWorker.register('./sw.js?v=20260923-1120',{updateViaCache:'none'});
+      await registration.update();
+    }catch(e){
+      console.error('Service Worker Update fehlgeschlagen',e);
+    }
+  });
+}
