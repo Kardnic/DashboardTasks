@@ -1,4 +1,4 @@
-const CACHE='dashboardtasks-v4-secure';
+const CACHE='dashboardtasks-v5-areas';
 const ASSETS=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
