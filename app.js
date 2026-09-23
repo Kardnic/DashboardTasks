@@ -155,15 +155,18 @@ function render(){
     const body=document.createElement('div');
     const title=document.createElement('div');title.className='task-title';title.textContent=t.title;
     const meta=document.createElement('div');meta.className='meta';
-    const parts=[
-      '<span class="pill">'+escapeHtml(t.category||'Sonstiges')+'</span>',
-      '<span class="pill">'+escapeHtml(t.priority||'normal')+'</span>',
-      '<span class="pill">'+escapeHtml(formatDate(t.due_at))+'</span>'
-    ];
-    if(t.waiting_for)parts.push('<span class="pill waiting">⏳ Warten auf</span>');
-    if(t.recurrence&&t.recurrence!=='none')parts.push('<span class="pill">↻ '+escapeHtml(recurrenceLabel(t.recurrence))+'</span>');
-    if(t.reminder_at&&!t.reminded_at)parts.push('<span class="pill">🔔 '+escapeHtml(formatDateTime(t.reminder_at))+'</span>');
-    meta.innerHTML=parts.join('');
+    const addPill=(text,extraClass='')=>{
+      const pill=document.createElement('span');
+      pill.className='pill'+(extraClass?' '+extraClass:'');
+      pill.textContent=text;
+      meta.append(pill);
+    };
+    addPill(t.category||'Sonstiges');
+    addPill(t.priority||'normal');
+    addPill(formatDate(t.due_at));
+    if(t.waiting_for)addPill('⏳ Warten auf','waiting');
+    if(t.recurrence&&t.recurrence!=='none')addPill('↻ '+recurrenceLabel(t.recurrence));
+    if(t.reminder_at&&!t.reminded_at)addPill('🔔 '+formatDateTime(t.reminder_at));
     body.append(title,meta);
     if(t.description){
       const desc=document.createElement('div');desc.className='meta';desc.textContent=t.description;body.append(desc);
@@ -528,7 +531,6 @@ async function savePushSubscription(subscription){
   const keys=json.keys||{};
   if(!json.endpoint||!keys.p256dh||!keys.auth)throw new Error('Push-Abo ist unvollständig');
   const {error}=await db.from('push_subscriptions').upsert({
-    user_id:session.user.id,
     endpoint:json.endpoint,
     p256dh:keys.p256dh,
     auth:keys.auth,
@@ -668,15 +670,6 @@ $('#loginForm').addEventListener('submit',async e=>{
   const email=$('#email').value.trim(),password=$('#password').value;
   const {error}=await db.auth.signInWithPassword({email,password});
   if(error)showMsg(authMsg,error.message,'error');
-});
-
-$('#signupBtn').addEventListener('click',async()=>{
-  hideMsg(authMsg);
-  const email=$('#email').value.trim(),password=$('#password').value;
-  if(!email||password.length<6){showMsg(authMsg,'E-Mail eingeben und ein Passwort mit mindestens 6 Zeichen wählen.','error');return}
-  const {error}=await db.auth.signUp({email,password});
-  if(error)showMsg(authMsg,error.message,'error');
-  else showMsg(authMsg,'Konto angelegt. Falls E-Mail-Bestätigung aktiviert ist, bestätige zuerst die Mail.','success');
 });
 
 $('#logoutBtn').addEventListener('click',async()=>{
