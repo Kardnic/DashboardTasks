@@ -45,77 +45,103 @@
           <div id="todayLabel" class="muted"></div>
         </div>
         <div class="top-actions">
-          <button id="securityBtn" class="ghost" type="button">🔐 Sicherheit</button>
-          <button id="notifyBtn" class="ghost" type="button">🔔 Erinnerungen</button>
-          <button id="logoutBtn" class="ghost" type="button">Abmelden</button>
+          <button id="settingsBtn" class="ghost settings-btn" type="button" aria-haspopup="dialog" aria-controls="settingsOverlay">⚙️ Einstellungen</button>
         </div>
       </header>
 
-      <section id="securityPanel" class="card security-panel hidden">
-        <div class="section-head">
-          <div>
-            <h2>Kontosicherheit</h2>
-            <div id="mfaStatus" class="muted">Sicherheitsstatus wird geprüft …</div>
+      <div id="settingsOverlay" class="settings-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <section class="settings-sheet">
+          <div class="settings-header">
+            <div>
+              <h2 id="settingsTitle">⚙️ Einstellungen</h2>
+              <div class="muted">Dashboard, Benachrichtigungen und Kontosicherheit</div>
+            </div>
+            <button id="closeSettingsBtn" class="ghost icon-button" type="button" aria-label="Einstellungen schließen">✕</button>
           </div>
-          <button id="closeSecurityBtn" class="ghost" type="button">Schließen</button>
-        </div>
 
-        <div class="security-actions">
-          <button id="enrollMfaBtn" class="primary" type="button">2FA mit Authenticator einrichten</button>
-        </div>
+          <div class="settings-content">
+            <section id="mobileContext" class="settings-group">
+              <div class="setting-group-head">
+                <div>
+                  <h3>📍 Bereich & Standort</h3>
+                  <div id="locationContextStatus" class="muted">Automatische Erkennung wird vorbereitet …</div>
+                </div>
+                <span id="locationBadge" class="smart-badge">Auto</span>
+              </div>
 
-        <div id="mfaEnrollBox" class="mfa-enroll hidden">
-          <p>Scanne den QR-Code mit deiner Authenticator-App und bestätige anschließend den 6-stelligen Code.</p>
-          <img id="mfaQr" class="mfa-qr" alt="QR-Code für Zwei-Faktor-Authentifizierung">
-          <div class="muted">Falls Scannen nicht geht:</div>
-          <code id="mfaSecret" class="mfa-secret"></code>
-          <form id="mfaEnrollForm" class="form">
-            <label>Bestätigungscode
-              <input id="mfaEnrollCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
-            </label>
-            <button class="primary" type="submit">2FA aktivieren</button>
-          </form>
-        </div>
-        <div id="securityMsg" class="notice hidden" aria-live="polite"></div>
-      </section>
+              <div class="area-mode-switch" role="group" aria-label="Bevorzugter Bereich">
+                <button class="ghost area-mode active" data-area-mode="auto" type="button">Auto</button>
+                <button class="ghost area-mode" data-area-mode="work" type="button">💼 Arbeit</button>
+                <button class="ghost area-mode" data-area-mode="private" type="button">🏠 Privat</button>
+              </div>
+
+              <div class="location-settings-body">
+                <p class="muted">Der Arbeitsort bleibt ausschließlich lokal auf diesem Smartphone gespeichert und wird nicht an Supabase übertragen.</p>
+                <label>Arbeitsradius
+                  <select id="workRadius">
+                    <option value="150">150 m</option>
+                    <option value="300" selected>300 m</option>
+                    <option value="500">500 m</option>
+                    <option value="800">800 m</option>
+                  </select>
+                </label>
+                <div class="row">
+                  <button id="setWorkLocationBtn" class="primary" type="button">Arbeitsort hier festlegen</button>
+                  <button id="clearWorkLocationBtn" class="ghost" type="button">Arbeitsort löschen</button>
+                </div>
+                <div id="locationMsg" class="notice hidden" aria-live="polite"></div>
+              </div>
+            </section>
+
+            <section class="settings-group">
+              <div class="setting-group-head">
+                <div>
+                  <h3>🔔 Benachrichtigungen</h3>
+                  <div class="muted">Push-Erinnerungen auch bei geschlossener App.</div>
+                </div>
+              </div>
+              <button id="notifyBtn" class="ghost settings-action" type="button">🔔 Push aktivieren</button>
+            </section>
+
+            <section id="securityPanel" class="settings-group security-panel">
+              <div class="setting-group-head">
+                <div>
+                  <h3>🔐 Kontosicherheit</h3>
+                  <div id="mfaStatus" class="muted">Sicherheitsstatus wird geprüft …</div>
+                </div>
+              </div>
+
+              <div class="security-actions">
+                <button id="enrollMfaBtn" class="primary" type="button">2FA mit Authenticator einrichten</button>
+              </div>
+
+              <div id="mfaEnrollBox" class="mfa-enroll hidden">
+                <p>Scanne den QR-Code mit deiner Authenticator-App und bestätige anschließend den 6-stelligen Code.</p>
+                <img id="mfaQr" class="mfa-qr" alt="QR-Code für Zwei-Faktor-Authentifizierung">
+                <div class="muted">Falls Scannen nicht geht:</div>
+                <code id="mfaSecret" class="mfa-secret"></code>
+                <form id="mfaEnrollForm" class="form">
+                  <label>Bestätigungscode
+                    <input id="mfaEnrollCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+                  </label>
+                  <button class="primary" type="submit">2FA aktivieren</button>
+                </form>
+              </div>
+              <div id="securityMsg" class="notice hidden" aria-live="polite"></div>
+            </section>
+
+            <section class="settings-group danger-zone">
+              <div>
+                <h3>Konto</h3>
+                <div class="muted">Beendet die Sitzung auf diesem Gerät.</div>
+              </div>
+              <button id="logoutBtn" class="ghost settings-action" type="button">Abmelden</button>
+            </section>
+          </div>
+        </section>
+      </div>
 
       <div id="reminderBanner" class="notice reminder-banner hidden" aria-live="assertive"></div>
-
-      <section id="mobileContext" class="card mobile-context">
-        <div class="context-head">
-          <div>
-            <div class="context-title">📍 Mobiler Bereich</div>
-            <div id="locationContextStatus" class="muted">Automatische Erkennung wird vorbereitet …</div>
-          </div>
-          <span id="locationBadge" class="smart-badge">Auto</span>
-        </div>
-
-        <div class="area-mode-switch" role="group" aria-label="Bevorzugter Bereich">
-          <button class="ghost area-mode active" data-area-mode="auto" type="button">Auto</button>
-          <button class="ghost area-mode" data-area-mode="work" type="button">💼 Arbeit</button>
-          <button class="ghost area-mode" data-area-mode="private" type="button">🏠 Privat</button>
-        </div>
-
-        <details class="location-settings">
-          <summary>Standorterkennung einstellen</summary>
-          <div class="location-settings-body">
-            <p class="muted">Der Arbeitsort wird ausschließlich lokal auf diesem Smartphone gespeichert und nicht an Supabase übertragen.</p>
-            <label>Arbeitsradius
-              <select id="workRadius">
-                <option value="150">150 m</option>
-                <option value="300" selected>300 m</option>
-                <option value="500">500 m</option>
-                <option value="800">800 m</option>
-              </select>
-            </label>
-            <div class="row">
-              <button id="setWorkLocationBtn" class="primary" type="button">Arbeitsort hier festlegen</button>
-              <button id="clearWorkLocationBtn" class="ghost" type="button">Arbeitsort löschen</button>
-            </div>
-            <div id="locationMsg" class="notice hidden" aria-live="polite"></div>
-          </div>
-        </details>
-      </section>
 
       <section class="card focus-card">
         <div class="section-head">
