@@ -81,6 +81,42 @@
 
       <div id="reminderBanner" class="notice reminder-banner hidden" aria-live="assertive"></div>
 
+      <section id="mobileContext" class="card mobile-context">
+        <div class="context-head">
+          <div>
+            <div class="context-title">📍 Mobiler Bereich</div>
+            <div id="locationContextStatus" class="muted">Automatische Erkennung wird vorbereitet …</div>
+          </div>
+          <span id="locationBadge" class="smart-badge">Auto</span>
+        </div>
+
+        <div class="area-mode-switch" role="group" aria-label="Bevorzugter Bereich">
+          <button class="ghost area-mode active" data-area-mode="auto" type="button">Auto</button>
+          <button class="ghost area-mode" data-area-mode="work" type="button">💼 Arbeit</button>
+          <button class="ghost area-mode" data-area-mode="private" type="button">🏠 Privat</button>
+        </div>
+
+        <details class="location-settings">
+          <summary>Standorterkennung einstellen</summary>
+          <div class="location-settings-body">
+            <p class="muted">Der Arbeitsort wird ausschließlich lokal auf diesem Smartphone gespeichert und nicht an Supabase übertragen.</p>
+            <label>Arbeitsradius
+              <select id="workRadius">
+                <option value="150">150 m</option>
+                <option value="300" selected>300 m</option>
+                <option value="500">500 m</option>
+                <option value="800">800 m</option>
+              </select>
+            </label>
+            <div class="row">
+              <button id="setWorkLocationBtn" class="primary" type="button">Arbeitsort hier festlegen</button>
+              <button id="clearWorkLocationBtn" class="ghost" type="button">Arbeitsort löschen</button>
+            </div>
+            <div id="locationMsg" class="notice hidden" aria-live="polite"></div>
+          </div>
+        </details>
+      </section>
+
       <section class="card focus-card">
         <div class="section-head">
           <div>
