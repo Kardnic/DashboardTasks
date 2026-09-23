@@ -129,7 +129,7 @@ function renderFocus(){
     const n=document.createElement('div');n.className='focus-number';n.textContent='FOKUS '+(i+1);
     const title=document.createElement('div');title.className='focus-title';title.textContent=t.title;
     const meta=document.createElement('div');meta.className='focus-meta';
-    meta.textContent=(isOverdueRaw(t)?'Überfällig · ':'')+formatDate(t.due_at)+' · '+t.priority;
+    meta.textContent=(taskArea(t)==='Arbeit'?'💼 Arbeit · ':'🏠 Privat · ')+(isOverdueRaw(t)?'Überfällig · ':'')+formatDate(t.due_at)+' · '+t.priority;
     item.append(n,title,meta);
     focusList.append(item);
   });
