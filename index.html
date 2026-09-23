@@ -34,6 +34,33 @@
         <button id="logoutBtn" class="ghost" type="button">Abmelden</button>
       </header>
 
+      <section class="card smart-card">
+        <div class="smart-head">
+          <div>
+            <h2>Smarteingabe</h2>
+            <div class="muted">Einfach schreiben oder mit der Smartphone-Tastatur diktieren.</div>
+          </div>
+          <span class="smart-badge">Schnell</span>
+        </div>
+
+        <form id="smartForm" class="smart-form">
+          <label class="sr-only" for="smartInput">Aufgabe natürlich eingeben</label>
+          <textarea id="smartInput" rows="2" maxlength="360" placeholder="z. B. Freitag um 10 Uhr bei Menke anrufen, hohe Priorität, Arbeit"></textarea>
+          <button class="primary smart-save" type="submit">Erkannte Aufgabe speichern</button>
+        </form>
+
+        <div id="smartPreview" class="smart-preview hidden" aria-live="polite">
+          <div class="preview-label">Erkannt</div>
+          <div id="previewTitle" class="preview-title"></div>
+          <div class="preview-pills">
+            <span id="previewDue" class="pill"></span>
+            <span id="previewCategory" class="pill"></span>
+            <span id="previewPriority" class="pill"></span>
+          </div>
+        </div>
+        <div id="smartMsg" class="notice hidden" aria-live="polite"></div>
+      </section>
+
       <div class="grid">
         <section class="card">
           <div class="stats">
@@ -56,43 +83,44 @@
         </section>
 
         <aside class="card quick">
-          <h2 style="margin-top:0">Schnellerfassung</h2>
-          <form id="taskForm" class="form">
-            <label>Aufgabe<input id="taskTitle" placeholder="Was ist zu erledigen?" maxlength="240" required></label>
-            <div class="notice">📱 Für Spracheingabe einfach das Mikrofon deiner Smartphone-Tastatur verwenden.</div>
-            <div class="row">
-              <label>Fälligkeit
-                <select id="dueMode">
-                  <option value="inbox">Inbox</option>
-                  <option value="today">Heute</option>
-                  <option value="tomorrow">Morgen</option>
-                  <option value="date">Datum wählen</option>
-                </select>
-              </label>
-              <label id="dueDateWrap" class="hidden">Datum<input id="dueDate" type="date"></label>
-            </div>
-            <div class="row">
-              <label>Kategorie
-                <select id="category">
-                  <option>Arbeit</option>
-                  <option>Privat</option>
-                  <option>JS Wenau</option>
-                  <option>Projekte</option>
-                  <option>Sonstiges</option>
-                </select>
-              </label>
-              <label>Priorität
-                <select id="priority">
-                  <option value="normal">Normal</option>
-                  <option value="hoch">Hoch</option>
-                  <option value="niedrig">Niedrig</option>
-                </select>
-              </label>
-            </div>
-            <label>Notiz<textarea id="description" rows="3" maxlength="1000" placeholder="Optional"></textarea></label>
-            <button class="primary" type="submit">Aufgabe speichern</button>
-            <div id="taskMsg" class="notice hidden" aria-live="polite"></div>
-          </form>
+          <details>
+            <summary>Manuelle Erfassung</summary>
+            <form id="taskForm" class="form manual-form">
+              <label>Aufgabe<input id="taskTitle" placeholder="Was ist zu erledigen?" maxlength="240" required></label>
+              <div class="row">
+                <label>Fälligkeit
+                  <select id="dueMode">
+                    <option value="inbox">Inbox</option>
+                    <option value="today">Heute</option>
+                    <option value="tomorrow">Morgen</option>
+                    <option value="date">Datum wählen</option>
+                  </select>
+                </label>
+                <label id="dueDateWrap" class="hidden">Datum<input id="dueDate" type="date"></label>
+              </div>
+              <div class="row">
+                <label>Kategorie
+                  <select id="category">
+                    <option>Arbeit</option>
+                    <option>Privat</option>
+                    <option>JS Wenau</option>
+                    <option>Projekte</option>
+                    <option>Sonstiges</option>
+                  </select>
+                </label>
+                <label>Priorität
+                  <select id="priority">
+                    <option value="normal">Normal</option>
+                    <option value="hoch">Hoch</option>
+                    <option value="niedrig">Niedrig</option>
+                  </select>
+                </label>
+              </div>
+              <label>Notiz<textarea id="description" rows="3" maxlength="1000" placeholder="Optional"></textarea></label>
+              <button class="primary" type="submit">Aufgabe speichern</button>
+              <div id="taskMsg" class="notice hidden" aria-live="polite"></div>
+            </form>
+          </details>
         </aside>
       </div>
     </section>
