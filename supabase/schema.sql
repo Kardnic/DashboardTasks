@@ -79,3 +79,42 @@ create index if not exists tasks_user_due_idx on public.tasks(user_id, due_at);
 create index if not exists tasks_user_completed_idx on public.tasks(user_id, completed);
 create index if not exists tasks_user_waiting_idx on public.tasks(user_id, waiting_for);
 create index if not exists tasks_user_reminder_idx on public.tasks(user_id, reminder_at);
+
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  endpoint text not null,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, endpoint)
+);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "Eigene Push Abos lesen" on public.push_subscriptions;
+create policy "Eigene Push Abos lesen" on public.push_subscriptions
+for select to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Eigene Push Abos anlegen" on public.push_subscriptions;
+create policy "Eigene Push Abos anlegen" on public.push_subscriptions
+for insert to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Eigene Push Abos ändern" on public.push_subscriptions;
+create policy "Eigene Push Abos ändern" on public.push_subscriptions
+for update to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Eigene Push Abos löschen" on public.push_subscriptions;
+create policy "Eigene Push Abos löschen" on public.push_subscriptions
+for delete to authenticated
+using (auth.uid() = user_id);
+
+grant select, insert, update, delete on public.push_subscriptions to authenticated;
+
+create index if not exists push_subscriptions_user_idx
+on public.push_subscriptions(user_id);
