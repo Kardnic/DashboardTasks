@@ -1,6 +1,13 @@
 const SUPABASE_URL='https://hfpryzswevnpmqdaidzj.supabase.co';
 const SUPABASE_KEY='sb_publishable_odMpT_m3G4RihPHoaYFMKA_fz7NPVsy';
-const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+  auth:{
+    persistSession:true,
+    autoRefreshToken:true,
+    detectSessionInUrl:true,
+    storage:window.localStorage
+  }
+});
 
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
