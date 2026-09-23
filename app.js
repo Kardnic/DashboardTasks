@@ -144,7 +144,7 @@ function distanceMeters(lat1,lon1,lat2,lon2){
 }
 
 function updateAreaModeButtons(){
-  $('.area-mode').forEach(btn=>{
+  [...document.querySelectorAll('.area-mode')].forEach(btn=>{
     btn.classList.toggle('active',btn.dataset.areaMode===mobileAreaMode);
   });
 }
