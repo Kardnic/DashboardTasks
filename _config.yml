@@ -1,0 +1,13 @@
+exclude:
+  - supabase
+  - README.md
+  - .github
+  - .gitignore
+
+include:
+  - index.html
+  - app.js
+  - styles.css
+  - manifest.webmanifest
+  - icon.svg
+  - sw.js
