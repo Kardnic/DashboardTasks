@@ -2,6 +2,8 @@
 <resources>
     <color name="widget_bg">#191D22</color>
     <color name="widget_surface">#20262D</color>
+    <color name="widget_panel">#20262D</color>
+    <color name="widget_border">#3A424C</color>
     <color name="widget_text">#F4F6F8</color>
     <color name="widget_muted">#A8B0BA</color>
     <color name="widget_accent">#7BBCFF</color>
