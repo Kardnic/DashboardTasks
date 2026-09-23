@@ -75,6 +75,37 @@ if(loginForm){
     }
   });
 }
+
+
+db.auth.onAuthStateChange((_event,session)=>{
+  setTimeout(()=>{
+    Promise.resolve(syncSession(session)).catch(error=>{
+      console.error('Session-Verarbeitung fehlgeschlagen',error);
+      authView.classList.remove('hidden');
+      appView.classList.add('hidden');
+      showMsg(authMsg,'Anmeldung war erfolgreich, aber das Dashboard konnte nicht vollständig gestartet werden. Seite bitte neu laden.','error');
+    });
+  },0);
+});
+
+(async()=>{
+  try{
+    const {data:{session}}=await db.auth.getSession();
+    if(session){
+      const {data:{user},error}=await db.auth.getUser();
+      if(error||!user){
+        await db.auth.signOut();
+        await syncSession(null);
+        return;
+      }
+    }
+    await syncSession(session);
+  }catch(error){
+    console.error('Initiale Session-Prüfung fehlgeschlagen',error);
+    authView.classList.remove('hidden');
+    appView.classList.add('hidden');
+  }
+})();
 function safeUiInit(fn){
   try{fn()}catch(error){
     console.error('Optionale UI-Funktion konnte nicht initialisiert werden',error);
@@ -1201,23 +1232,6 @@ async function syncSession(session){
   startReminderTimer();
   startMobileLocationChecks();
 }
-
-db.auth.onAuthStateChange((_event,session)=>{
-  setTimeout(()=>syncSession(session),0);
-});
-
-(async()=>{
-  const {data:{session}}=await db.auth.getSession();
-  if(session){
-    const {data:{user},error}=await db.auth.getUser();
-    if(error||!user){
-      await db.auth.signOut();
-      await syncSession(null);
-      return;
-    }
-  }
-  await syncSession(session);
-})();
 
 $('#todayLabel').textContent=new Intl.DateTimeFormat('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date());
 updateNotifyButton();
