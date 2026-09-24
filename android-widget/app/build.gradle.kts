@@ -11,8 +11,8 @@ android {
         applicationId = "de.kardnic.dashboardtaskswidget"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
 
         buildConfigField("String", "SUPABASE_URL", "\"https://hfpryzswevnpmqdaidzj.supabase.co\"")
         buildConfigField("String", "SUPABASE_KEY", "\"sb_publishable_odMpT_m3G4RihPHoaYFMKA_fz7NPVsy\"")
