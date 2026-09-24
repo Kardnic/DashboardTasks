@@ -53,8 +53,11 @@ class MainActivity : ComponentActivity() {
     private lateinit var statInbox: TextView
     private lateinit var statWaiting: TextView
     private lateinit var statWeek: TextView
+    private lateinit var updateStatusText: TextView
+    private lateinit var updateAppButton: Button
 
     private var tasks: List<TaskRow> = emptyList()
+    private var availableUpdate: AppUpdateInfo? = null
     private var activeFilter = "today"
     private var loadingDashboard = false
 
@@ -102,6 +105,8 @@ class MainActivity : ComponentActivity() {
         statInbox = findViewById(R.id.statInbox)
         statWaiting = findViewById(R.id.statWaiting)
         statWeek = findViewById(R.id.statWeek)
+        updateStatusText = findViewById(R.id.updateStatusText)
+        updateAppButton = findViewById(R.id.updateAppButton)
     }
 
     private fun bindActions() {
@@ -114,6 +119,16 @@ class MainActivity : ComponentActivity() {
             override fun afterTextChanged(s: Editable?) = Unit
         })
         addQuickTaskButton.setOnClickListener { addQuickTask() }
+
+        updateAppButton.setOnClickListener {
+            val update = availableUpdate
+            if (update != null) {
+                val target = update.apkUrl ?: update.releaseUrl
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+            } else {
+                checkForUpdates(showCurrent = true)
+            }
+        }
 
         filterButtons().forEach { (id, filter) ->
             findViewById<Button>(id).setOnClickListener {
@@ -231,6 +246,7 @@ class MainActivity : ComponentActivity() {
         WidgetUpdateWorker.enqueue(this, replace = true)
         DashboardWidgetProvider.schedulePeriodicUpdates(this)
         lifecycleScope.launch { loadDashboard(showStatus = false) }
+        checkForUpdates(showCurrent = false)
     }
 
     private suspend fun loadDashboard(showStatus: Boolean) {
@@ -551,6 +567,36 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun checkForUpdates(showCurrent: Boolean) {
+        updateAppButton.isEnabled = false
+        updateStatusText.text = "Suche nach neuer Version …"
+
+        lifecycleScope.launch {
+            runCatching { AppUpdateChecker.check() }
+                .onSuccess { update ->
+                    availableUpdate = update
+                    if (update != null) {
+                        updateStatusText.text =
+                            "Update ${update.versionName} verfügbar · aktuell ${BuildConfig.VERSION_NAME}"
+                        updateAppButton.text = "Update ${update.versionName} herunterladen"
+                    } else {
+                        updateStatusText.text =
+                            if (showCurrent) "App ist aktuell · Version ${BuildConfig.VERSION_NAME}"
+                            else "Version ${BuildConfig.VERSION_NAME}"
+                        updateAppButton.text = "Nach Update suchen"
+                    }
+                }
+                .onFailure {
+                    availableUpdate = null
+                    updateStatusText.text =
+                        if (showCurrent) "Update-Prüfung derzeit nicht möglich."
+                        else "Version ${BuildConfig.VERSION_NAME}"
+                    updateAppButton.text = "Nach Update suchen"
+                }
+            updateAppButton.isEnabled = true
+        }
+    }
 
     private fun setBusy(busy: Boolean) {
         loginButton.isEnabled = !busy
