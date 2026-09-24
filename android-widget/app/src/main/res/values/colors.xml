@@ -4,4 +4,8 @@
     <color name="text_primary">#17202A</color>
     <color name="text_secondary">#5F6B76</color>
     <color name="brand">#1769AA</color>
+    <color name="card_background">#FFFFFF</color>
+    <color name="private_accent">#168B55</color>
+    <color name="danger">#B3261E</color>
+    <color name="line">#D7DCE2</color>
 </resources>
