@@ -1,16 +1,14 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
-    namespace = "de.kardnic.dashboardtasks.widget"
+    namespace = "de.kardnic.dashboardtaskswidget"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "de.kardnic.dashboardtasks.widget"
+        applicationId = "de.kardnic.dashboardtaskswidget"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -23,7 +21,6 @@ android {
 
     buildFeatures {
         buildConfig = true
-        compose = true
     }
 
     compileOptions {
@@ -41,10 +38,6 @@ android {
     }
 }
 
-kotlin {
-    jvmToolchain(17)
-}
-
 dependencies {
     val supabaseVersion = "3.8.0"
 
@@ -53,9 +46,9 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.ktor:ktor-client-okhttp:3.5.1")
 
-    implementation("androidx.glance:glance-appwidget:1.2.0")
-    implementation("androidx.work:work-runtime:2.11.2")
-    implementation("com.google.android.gms:play-services-location:21.4.0")
+    implementation("androidx.activity:activity-ktx:1.13.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
+    implementation("androidx.work:work-runtime-ktx:2.11.2")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
