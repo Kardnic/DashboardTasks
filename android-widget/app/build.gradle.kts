@@ -3,6 +3,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+val releaseKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+
 android {
     namespace = "de.kardnic.dashboardtaskswidget"
     compileSdk = 36
@@ -21,6 +26,26 @@ android {
 
     buildFeatures {
         buildConfig = true
+    }
+
+    signingConfigs {
+        if (!releaseKeystorePath.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(releaseKeystorePath)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            if (!releaseKeystorePath.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     compileOptions {
