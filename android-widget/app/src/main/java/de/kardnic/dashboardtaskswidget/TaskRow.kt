@@ -16,6 +16,7 @@ data class TaskRow(
     @SerialName("waiting_for") val waitingFor: Boolean = false,
     val recurrence: String = "none",
     @SerialName("reminder_at") val reminderAt: String? = null,
+    @SerialName("next_recurrence_created") val nextRecurrenceCreated: Boolean = false,
     @SerialName("created_at") val createdAt: String? = null
 )
 
