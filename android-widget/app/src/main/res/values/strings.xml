@@ -1,6 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">DashboardTasks Widget</string>
-    <string name="widget_name">Aufgaben Dashboard</string>
-    <string name="widget_description">4×5 Aufgaben-Widget mit Arbeit/Privat-Automatik</string>
+    <string name="widget_title">Meine Aufgaben</string>
+    <string name="widget_description">Heute und überfällige Aufgaben aus dem Dashboard.</string>
+    <string name="widget_loading">Wird aktualisiert …</string>
+    <string name="widget_updated">Heute &amp; überfällig</string>
+    <string name="widget_no_tasks">Keine passenden Aufgaben offen.</string>
+    <string name="widget_sign_in">Zum Anzeigen einmal die App öffnen und anmelden.</string>
+    <string name="widget_mfa_required">2FA erforderlich – App antippen und Code eingeben.</string>
+    <string name="filter_all">Alle</string>
+    <string name="filter_work">Arbeit</string>
+    <string name="filter_private">Privat</string>
+    <string name="email">E-Mail</string>
+    <string name="password">Passwort</string>
+    <string name="sign_in">Anmelden</string>
+    <string name="sign_out">Abmelden</string>
+    <string name="mfa_code">6-stelliger Authenticator-Code</string>
+    <string name="confirm_mfa">2FA bestätigen</string>
+    <string name="refresh_widget">Widget jetzt aktualisieren</string>
+    <string name="open_dashboard">Dashboard öffnen</string>
+    <string name="checking_session">Gespeicherte Anmeldung wird geprüft …</string>
+    <string name="enter_credentials">Bitte E-Mail und Passwort eingeben.</string>
+    <string name="login_failed">Anmeldung fehlgeschlagen. Bitte Zugangsdaten prüfen.</string>
+    <string name="mfa_required">Für dieses Konto ist 2FA erforderlich.</string>
+    <string name="invalid_mfa_code">Bitte einen gültigen 6-stelligen Code eingeben.</string>
+    <string name="mfa_failed">2FA-Code ungültig oder abgelaufen.</string>
+    <string name="signed_in">Angemeldet. Das Widget kann jetzt deine Aufgaben laden.</string>
+    <string name="sign_in_hint">Mit demselben Konto wie im Dashboard anmelden.</string>
+    <string name="widget_refresh_started">Widget-Aktualisierung wurde gestartet.</string>
+    <string name="widget_help">Nach der Anmeldung: Auf dem Startbildschirm lange drücken → Widgets → „DashboardTasks Widget“ hinzufügen. Im Widget kannst du zwischen Alle, Arbeit und Privat wechseln.</string>
 </resources>
