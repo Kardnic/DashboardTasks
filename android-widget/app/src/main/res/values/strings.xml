@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name_dashboard">Aufgaben Dashboard</string>
-    <string name="app_name">DashboardTasks Widget</string>
+    <string name="app_name">Aufgaben Dashboard</string>
     <string name="widget_title">Meine Aufgaben</string>
     <string name="widget_description">Heute und überfällige Aufgaben aus dem Dashboard.</string>
     <string name="widget_loading">Wird aktualisiert …</string>
