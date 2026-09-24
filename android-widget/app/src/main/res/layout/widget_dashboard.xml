@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widgetTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/widget_title"
+            android:textColor="@android:color/white"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/refreshButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:text="↻"
+            android:textColor="@android:color/white"
+            android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/addButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:text="+"
+            android:textColor="@android:color/white"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/filterAll"
+            style="@style/WidgetFilter"
+            android:text="@string/filter_all" />
+
+        <TextView
+            android:id="@+id/filterWork"
+            style="@style/WidgetFilter"
+            android:text="@string/filter_work" />
+
+        <TextView
+            android:id="@+id/filterPrivate"
+            style="@style/WidgetFilter"
+            android:text="@string/filter_private" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widgetStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:text="@string/widget_loading"
+        android:textColor="#B8C7D9"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/task1"
+        style="@style/WidgetTask"
+        android:layout_marginTop="7dp" />
+
+    <TextView
+        android:id="@+id/task2"
+        style="@style/WidgetTask" />
+
+    <TextView
+        android:id="@+id/task3"
+        style="@style/WidgetTask" />
+
+    <TextView
+        android:id="@+id/task4"
+        style="@style/WidgetTask" />
+</LinearLayout>
