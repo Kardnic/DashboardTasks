@@ -40,8 +40,8 @@ class WidgetUpdateWorker(
 
         return runCatching {
             val client = SupabaseProvider.client
-            val levels = client.auth.mfa.getAuthenticatorAssuranceLevel()
-            if (levels.first != levels.second) {
+            val (currentLevel, nextLevel) = client.auth.mfa.getAuthenticatorAssuranceLevel()
+            if (currentLevel != nextLevel) {
                 ids.forEach { manager.updateAppWidget(it, mfaRequiredViews()) }
                 return Result.success()
             }
@@ -65,6 +65,7 @@ class WidgetUpdateWorker(
                     when (selectedArea) {
                         WidgetPrefs.AREA_WORK -> eq("area", "Arbeit")
                         WidgetPrefs.AREA_PRIVATE -> eq("area", "Privat")
+                        else -> Unit
                     }
                 }
             }
