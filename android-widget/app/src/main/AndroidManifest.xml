@@ -1,24 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-
-    <uses-feature
-        android:name="android.hardware.location.gps"
-        android:required="false" />
 
     <application
-        android:name=".DashboardApplication"
+        android:name=".DashboardApp"
         android:allowBackup="false"
-        android:fullBackupContent="false"
-        android:icon="@drawable/ic_widget"
+        android:usesCleartextTraffic="false"
+        android:icon="@drawable/ic_dashboard"
         android:label="@string/app_name"
-        android:supportsRtl="true"
-        android:theme="@style/AppTheme"
-        android:usesCleartextTraffic="false">
+        android:theme="@style/Theme.DashboardTasksWidget">
 
         <activity
             android:name=".MainActivity"
@@ -30,20 +20,18 @@
         </activity>
 
         <receiver
-            android:name=".TaskWidgetReceiver"
-            android:exported="true">
+            android:name=".DashboardWidgetProvider"
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="de.kardnic.dashboardtaskswidget.REFRESH" />
+                <action android:name="de.kardnic.dashboardtaskswidget.AREA_ALL" />
+                <action android:name="de.kardnic.dashboardtaskswidget.AREA_WORK" />
+                <action android:name="de.kardnic.dashboardtaskswidget.AREA_PRIVATE" />
             </intent-filter>
-
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/task_widget_info" />
+                android:resource="@xml/dashboard_widget_info" />
         </receiver>
-
-        <receiver
-            android:name=".GeofenceReceiver"
-            android:exported="false" />
     </application>
-
 </manifest>
