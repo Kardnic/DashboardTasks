@@ -98,8 +98,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private suspend fun showAfterFirstFactor() {
-        val levels = client.auth.mfa.getAuthenticatorAssuranceLevel()
-        if (levels.first != levels.second) {
+        val (currentLevel, nextLevel) = client.auth.mfa.getAuthenticatorAssuranceLevel()
+        if (currentLevel != nextLevel) {
             loginBox.visibility = View.GONE
             mfaBox.visibility = View.VISIBLE
             loggedInBox.visibility = View.GONE
