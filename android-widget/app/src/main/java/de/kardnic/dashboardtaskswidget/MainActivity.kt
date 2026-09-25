@@ -1,15 +1,23 @@
 package de.kardnic.dashboardtaskswidget
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
@@ -20,6 +28,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -52,8 +61,17 @@ class MainActivity : ComponentActivity() {
     private lateinit var focusContainer: LinearLayout
     private lateinit var workTasksContainer: LinearLayout
     private lateinit var privateTasksContainer: LinearLayout
+    private lateinit var workSection: LinearLayout
+    private lateinit var privateSection: LinearLayout
     private lateinit var workHeader: TextView
     private lateinit var privateHeader: TextView
+    private lateinit var locationStatusText: TextView
+    private lateinit var locationModeAutoButton: Button
+    private lateinit var locationModeWorkButton: Button
+    private lateinit var locationModePrivateButton: Button
+    private lateinit var workRadiusInput: EditText
+    private lateinit var setWorkLocationButton: Button
+    private lateinit var clearWorkLocationButton: Button
 
     private lateinit var statToday: TextView
     private lateinit var statOverdue: TextView
@@ -67,6 +85,15 @@ class MainActivity : ComponentActivity() {
     private var availableUpdate: AppUpdateInfo? = null
     private var activeFilter = "today"
     private var loadingDashboard = false
+
+    private val locationPrefs by lazy {
+        getSharedPreferences("location_context", Context.MODE_PRIVATE)
+    }
+    private var detectedArea: String? = null
+    private var pendingLocationAction = LOCATION_ACTION_CHECK
+    private val locationHandler = Handler(Looper.getMainLooper())
+    private var locationListener: LocationListener? = null
+    private var locationTimeout: Runnable? = null
 
     private val updatePrefs by lazy {
         getSharedPreferences("app_updates", Context.MODE_PRIVATE)
@@ -102,6 +129,7 @@ class MainActivity : ComponentActivity() {
         resumePendingUpdateInstall(openSettingsIfNeeded = false)
         if (::loggedInBox.isInitialized && loggedInBox.visibility == View.VISIBLE) {
             lifecycleScope.launch { loadDashboard(showStatus = false) }
+            checkWorkLocation(force = false)
         }
     }
 
@@ -110,6 +138,7 @@ class MainActivity : ComponentActivity() {
             runCatching { unregisterReceiver(updateDownloadReceiver) }
             updateReceiverRegistered = false
         }
+        stopLocationRequest()
         super.onDestroy()
     }
 
@@ -129,8 +158,18 @@ class MainActivity : ComponentActivity() {
         focusContainer = findViewById(R.id.focusContainer)
         workTasksContainer = findViewById(R.id.workTasksContainer)
         privateTasksContainer = findViewById(R.id.privateTasksContainer)
+        workSection = findViewById(R.id.workSection)
+        privateSection = findViewById(R.id.privateSection)
         workHeader = findViewById(R.id.workHeader)
         privateHeader = findViewById(R.id.privateHeader)
+        locationStatusText = findViewById(R.id.locationStatusText)
+        locationModeAutoButton = findViewById(R.id.locationModeAutoButton)
+        locationModeWorkButton = findViewById(R.id.locationModeWorkButton)
+        locationModePrivateButton = findViewById(R.id.locationModePrivateButton)
+        workRadiusInput = findViewById(R.id.workRadiusInput)
+        setWorkLocationButton = findViewById(R.id.setWorkLocationButton)
+        clearWorkLocationButton = findViewById(R.id.clearWorkLocationButton)
+        readWorkLocation()?.let { workRadiusInput.setText(it.radius.toString()) }
         statToday = findViewById(R.id.statToday)
         statOverdue = findViewById(R.id.statOverdue)
         statInbox = findViewById(R.id.statInbox)
@@ -150,6 +189,19 @@ class MainActivity : ComponentActivity() {
             override fun afterTextChanged(s: Editable?) = Unit
         })
         addQuickTaskButton.setOnClickListener { addQuickTask() }
+
+        locationModeAutoButton.setOnClickListener { setAreaMode(AREA_MODE_AUTO) }
+        locationModeWorkButton.setOnClickListener { setAreaMode(AREA_MODE_WORK) }
+        locationModePrivateButton.setOnClickListener { setAreaMode(AREA_MODE_PRIVATE) }
+        setWorkLocationButton.setOnClickListener { requestLocationPermission(LOCATION_ACTION_SAVE) }
+        clearWorkLocationButton.setOnClickListener {
+            clearWorkLocation()
+            detectedArea = null
+            applyAreaPreference()
+        }
+        workRadiusInput.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) updateSavedRadius()
+        }
 
         updateAppButton.setOnClickListener {
             if (pendingUpdateDownloadId() >= 0L) {
@@ -191,6 +243,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         updateFilterButtons()
+        applyAreaPreference()
     }
 
     private fun filterButtons() = mapOf(
@@ -281,6 +334,8 @@ class MainActivity : ComponentActivity() {
         WidgetUpdateWorker.enqueue(this, replace = true)
         DashboardWidgetProvider.schedulePeriodicUpdates(this)
         lifecycleScope.launch { loadDashboard(showStatus = false) }
+        applyAreaPreference()
+        checkWorkLocation(force = false)
         checkForUpdates(showCurrent = false)
     }
 
@@ -351,6 +406,7 @@ class MainActivity : ComponentActivity() {
         privateHeader.text = "🏠 Privat  ${privateTasks.size}"
         renderTaskList(workTasksContainer, work, "Keine Arbeitsaufgaben in dieser Ansicht.")
         renderTaskList(privateTasksContainer, privateTasks, "Keine privaten Aufgaben in dieser Ansicht.")
+        applyAreaPreference()
     }
 
     private fun updateStats() {
@@ -603,6 +659,238 @@ class MainActivity : ComponentActivity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
+    private data class WorkLocation(
+        val latitude: Double,
+        val longitude: Double,
+        val radius: Int
+    )
+
+    private fun currentAreaMode(): String =
+        locationPrefs.getString(PREF_AREA_MODE, AREA_MODE_AUTO) ?: AREA_MODE_AUTO
+
+    private fun setAreaMode(mode: String) {
+        val normalized = if (mode in setOf(AREA_MODE_AUTO, AREA_MODE_WORK, AREA_MODE_PRIVATE)) mode else AREA_MODE_AUTO
+        locationPrefs.edit().putString(PREF_AREA_MODE, normalized).apply()
+        applyAreaPreference()
+        if (normalized == AREA_MODE_AUTO) checkWorkLocation(force = true)
+    }
+
+    private fun readWorkLocation(): WorkLocation? {
+        if (!locationPrefs.contains(PREF_WORK_LAT) || !locationPrefs.contains(PREF_WORK_LON)) return null
+        val lat = java.lang.Double.longBitsToDouble(locationPrefs.getLong(PREF_WORK_LAT, 0L))
+        val lon = java.lang.Double.longBitsToDouble(locationPrefs.getLong(PREF_WORK_LON, 0L))
+        val radius = locationPrefs.getInt(PREF_WORK_RADIUS, DEFAULT_WORK_RADIUS)
+        if (!lat.isFinite() || !lon.isFinite()) return null
+        return WorkLocation(lat, lon, radius)
+    }
+
+    private fun saveWorkLocation(location: Location) {
+        val radius = requestedRadius()
+        val coarseLat = kotlin.math.round(location.latitude * 10_000.0) / 10_000.0
+        val coarseLon = kotlin.math.round(location.longitude * 10_000.0) / 10_000.0
+        locationPrefs.edit()
+            .putLong(PREF_WORK_LAT, java.lang.Double.doubleToRawLongBits(coarseLat))
+            .putLong(PREF_WORK_LON, java.lang.Double.doubleToRawLongBits(coarseLon))
+            .putInt(PREF_WORK_RADIUS, radius)
+            .putString(PREF_AREA_MODE, AREA_MODE_AUTO)
+            .apply()
+        detectedArea = AREA_MODE_WORK
+        workRadiusInput.setText(radius.toString())
+        applyAreaPreference()
+        locationStatusText.text = "📍 Arbeitsort gespeichert · Automatik ist aktiv."
+    }
+
+    private fun clearWorkLocation() {
+        locationPrefs.edit()
+            .remove(PREF_WORK_LAT)
+            .remove(PREF_WORK_LON)
+            .remove(PREF_WORK_RADIUS)
+            .apply()
+        locationStatusText.text = "Gespeicherter Arbeitsort wurde gelöscht."
+    }
+
+    private fun requestedRadius(): Int =
+        (workRadiusInput.text.toString().toIntOrNull() ?: DEFAULT_WORK_RADIUS).coerceIn(100, 2000)
+
+    private fun updateSavedRadius() {
+        val saved = readWorkLocation() ?: return
+        val radius = requestedRadius()
+        locationPrefs.edit().putInt(PREF_WORK_RADIUS, radius).apply()
+        workRadiusInput.setText(radius.toString())
+        if (currentAreaMode() == AREA_MODE_AUTO) checkWorkLocation(force = true)
+    }
+
+    private fun applyAreaPreference() {
+        if (!::locationStatusText.isInitialized) return
+        val mode = currentAreaMode()
+        locationModeAutoButton.isEnabled = mode != AREA_MODE_AUTO
+        locationModeWorkButton.isEnabled = mode != AREA_MODE_WORK
+        locationModePrivateButton.isEnabled = mode != AREA_MODE_PRIVATE
+
+        val preferred = when (mode) {
+            AREA_MODE_WORK -> AREA_MODE_WORK
+            AREA_MODE_PRIVATE -> AREA_MODE_PRIVATE
+            else -> detectedArea
+        }
+
+        workSection.setBackgroundColor(getColor(if (preferred == AREA_MODE_WORK) R.color.work_preferred_background else R.color.card_background))
+        privateSection.setBackgroundColor(getColor(if (preferred == AREA_MODE_PRIVATE) R.color.private_preferred_background else R.color.card_background))
+        workHeader.text = workHeader.text.toString().removePrefix("⭐ ").let { if (preferred == AREA_MODE_WORK) "⭐ $it" else it }
+        privateHeader.text = privateHeader.text.toString().removePrefix("⭐ ").let { if (preferred == AREA_MODE_PRIVATE) "⭐ $it" else it }
+        reorderAreaSections(preferred)
+
+        locationStatusText.text = when (mode) {
+            AREA_MODE_WORK -> "Manuell auf Arbeit gestellt."
+            AREA_MODE_PRIVATE -> "Manuell auf Privat gestellt."
+            else -> when {
+                readWorkLocation() == null -> "Arbeitsort noch nicht festgelegt. Tippe auf „Arbeitsort hier festlegen“."
+                detectedArea == AREA_MODE_WORK -> "📍 Arbeitsort erkannt · Arbeit wird bevorzugt angezeigt."
+                detectedArea == AREA_MODE_PRIVATE -> "📍 Nicht am Arbeitsort · Privat wird bevorzugt angezeigt."
+                else -> "Arbeitsort gespeichert · Standort wird beim Öffnen geprüft."
+            }
+        }
+    }
+
+    private fun reorderAreaSections(preferred: String?) {
+        val parent = workSection.parent as? LinearLayout ?: return
+        val workIndex = parent.indexOfChild(workSection)
+        val privateIndex = parent.indexOfChild(privateSection)
+        if (workIndex < 0 || privateIndex < 0) return
+
+        if (preferred == AREA_MODE_PRIVATE && privateIndex > workIndex) {
+            parent.removeView(privateSection)
+            parent.addView(privateSection, workIndex)
+        } else if (preferred != AREA_MODE_PRIVATE && workIndex > privateIndex) {
+            parent.removeView(workSection)
+            parent.addView(workSection, privateIndex)
+        }
+    }
+
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    private fun requestLocationPermission(action: String) {
+        pendingLocationAction = action
+        if (hasLocationPermission()) {
+            requestCurrentLocation(saveAsWork = action == LOCATION_ACTION_SAVE)
+        } else {
+            requestPermissions(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                LOCATION_PERMISSION_REQUEST
+            )
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != LOCATION_PERMISSION_REQUEST) return
+        if (grantResults.any { it == PackageManager.PERMISSION_GRANTED }) {
+            requestCurrentLocation(saveAsWork = pendingLocationAction == LOCATION_ACTION_SAVE)
+        } else {
+            locationStatusText.text = "Standortzugriff nicht erlaubt · manuelle Umschaltung bleibt verfügbar."
+            applyAreaPreference()
+        }
+    }
+
+    private fun checkWorkLocation(force: Boolean) {
+        if (currentAreaMode() != AREA_MODE_AUTO) {
+            applyAreaPreference()
+            return
+        }
+        if (readWorkLocation() == null) {
+            detectedArea = null
+            applyAreaPreference()
+            return
+        }
+        if (!hasLocationPermission()) {
+            if (force) requestLocationPermission(LOCATION_ACTION_CHECK)
+            else {
+                detectedArea = null
+                applyAreaPreference()
+            }
+            return
+        }
+        requestCurrentLocation(saveAsWork = false)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun requestCurrentLocation(saveAsWork: Boolean) {
+        stopLocationRequest()
+        val manager = getSystemService(LocationManager::class.java)
+        val preferredProviders = if (saveAsWork) {
+            listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        } else {
+            listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
+        }
+        val provider = preferredProviders.firstOrNull {
+            runCatching { manager.isProviderEnabled(it) }.getOrDefault(false)
+        }
+        if (provider == null) {
+            locationStatusText.text = "Standortdienste sind deaktiviert."
+            return
+        }
+
+        setWorkLocationButton.isEnabled = false
+        if (saveAsWork) locationStatusText.text = "Arbeitsort wird ermittelt …"
+        else locationStatusText.text = "Standort wird geprüft …"
+
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                stopLocationRequest()
+                setWorkLocationButton.isEnabled = true
+                if (saveAsWork) saveWorkLocation(location) else evaluateCurrentLocation(location)
+            }
+
+            @Deprecated("Deprecated in Android")
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
+            override fun onProviderEnabled(provider: String) = Unit
+            override fun onProviderDisabled(provider: String) = Unit
+        }
+        locationListener = listener
+
+        runCatching { manager.requestSingleUpdate(provider, listener, Looper.getMainLooper()) }
+            .onFailure {
+                stopLocationRequest()
+                setWorkLocationButton.isEnabled = true
+                locationStatusText.text = "Standort konnte nicht ermittelt werden."
+            }
+
+        val timeout = Runnable {
+            stopLocationRequest()
+            setWorkLocationButton.isEnabled = true
+            locationStatusText.text = "Standortabfrage hat zu lange gedauert."
+        }
+        locationTimeout = timeout
+        locationHandler.postDelayed(timeout, 15_000L)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun stopLocationRequest() {
+        locationTimeout?.let { locationHandler.removeCallbacks(it) }
+        locationTimeout = null
+        val listener = locationListener ?: return
+        runCatching { getSystemService(LocationManager::class.java).removeUpdates(listener) }
+        locationListener = null
+    }
+
+    private fun evaluateCurrentLocation(location: Location) {
+        val work = readWorkLocation() ?: run {
+            detectedArea = null
+            applyAreaPreference()
+            return
+        }
+        val result = FloatArray(1)
+        Location.distanceBetween(location.latitude, location.longitude, work.latitude, work.longitude, result)
+        val tolerance = location.accuracy.coerceAtMost(100f)
+        detectedArea = if (result[0] <= work.radius + tolerance) AREA_MODE_WORK else AREA_MODE_PRIVATE
+        applyAreaPreference()
+    }
+
     private fun registerUpdateDownloadReceiver() {
         if (updateReceiverRegistered) return
         val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
@@ -793,5 +1081,16 @@ class MainActivity : ComponentActivity() {
         const val APK_MIME = "application/vnd.android.package-archive"
         const val PREF_UPDATE_DOWNLOAD_ID = "update_download_id"
         const val PREF_UPDATE_VERSION = "update_version"
+        const val PREF_WORK_LAT = "work_lat"
+        const val PREF_WORK_LON = "work_lon"
+        const val PREF_WORK_RADIUS = "work_radius"
+        const val PREF_AREA_MODE = "area_mode"
+        const val AREA_MODE_AUTO = "auto"
+        const val AREA_MODE_WORK = "work"
+        const val AREA_MODE_PRIVATE = "private"
+        const val LOCATION_ACTION_CHECK = "check"
+        const val LOCATION_ACTION_SAVE = "save"
+        const val LOCATION_PERMISSION_REQUEST = 401
+        const val DEFAULT_WORK_RADIUS = 300
     }
 }
