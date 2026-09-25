@@ -2,6 +2,10 @@ name: Android Release APK
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - "android-widget/release-trigger.txt"
     tags:
       - "v*"
 
@@ -30,6 +34,21 @@ jobs:
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
         with:
           gradle-version: "9.6.0"
+
+      - name: Release-Version bestimmen
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(tr -d '[:space:]' < release-trigger.txt)"
+          fi
+          test -n "$VERSION"
+          APP_VERSION="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+          test "$APP_VERSION" = "$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=v$VERSION" >> "$GITHUB_ENV"
 
       - name: Prüfe Signing Secrets
         shell: bash
@@ -67,7 +86,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
           cp app/build/outputs/apk/release/app-release.apk "Aufgaben-Dashboard-${VERSION}.apk"
           sha256sum "Aufgaben-Dashboard-${VERSION}.apk" > "Aufgaben-Dashboard-${VERSION}.apk.sha256"
 
@@ -77,5 +95,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          gh release create "$GITHUB_REF_NAME"             "Aufgaben-Dashboard-${VERSION}.apk"             "Aufgaben-Dashboard-${VERSION}.apk.sha256"             --title "Aufgaben Dashboard ${VERSION}"             --generate-notes
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG existiert bereits."
+            exit 1
+          fi
+          gh release create "$TAG"             "Aufgaben-Dashboard-${VERSION}.apk"             "Aufgaben-Dashboard-${VERSION}.apk.sha256"             --target "$GITHUB_SHA"             --title "Aufgaben Dashboard ${VERSION}"             --generate-notes
