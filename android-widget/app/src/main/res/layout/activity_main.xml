@@ -207,6 +207,7 @@
             </HorizontalScrollView>
 
             <LinearLayout
+                android:id="@+id/workSection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
@@ -232,6 +233,7 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/privateSection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
@@ -264,6 +266,84 @@
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="Standorterkennung"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/locationStatusText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:text="Arbeitsort noch nicht festgelegt."
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/locationModeAutoButton"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:text="Auto"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/locationModeWorkButton"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:text="Arbeit"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/locationModePrivateButton"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:text="Privat"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/workRadiusInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="Arbeitsradius in Metern"
+                android:inputType="number"
+                android:maxLength="4"
+                android:minHeight="48dp"
+                android:text="300" />
+
+            <Button
+                android:id="@+id/setWorkLocationButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Arbeitsort hier festlegen"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/clearWorkLocationButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Gespeicherten Arbeitsort löschen"
+                android:textAllCaps="false" />
 
             <TextView
                 android:id="@+id/updateStatusText"
