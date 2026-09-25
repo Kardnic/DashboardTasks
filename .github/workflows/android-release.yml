@@ -96,6 +96,16 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "Aufgaben-Dashboard-${VERSION}.apk"
           sha256sum "Aufgaben-Dashboard-${VERSION}.apk" > "Aufgaben-Dashboard-${VERSION}.apk.sha256"
 
+      - name: Signierte APK als Build-Artefakt speichern
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Aufgaben-Dashboard-${{ env.VERSION }}-signed
+          path: |
+            android-widget/Aufgaben-Dashboard-${{ env.VERSION }}.apk
+            android-widget/Aufgaben-Dashboard-${{ env.VERSION }}.apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
       - name: GitHub Release veröffentlichen
         shell: bash
         env:
