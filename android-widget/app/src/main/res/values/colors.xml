@@ -8,4 +8,6 @@
     <color name="private_accent">#168B55</color>
     <color name="danger">#B3261E</color>
     <color name="line">#D7DCE2</color>
+    <color name="work_preferred_background">#E8F2FB</color>
+    <color name="private_preferred_background">#EAF7F0</color>
 </resources>
