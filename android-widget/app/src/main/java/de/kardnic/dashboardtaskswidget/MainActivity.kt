@@ -1,9 +1,16 @@
 package de.kardnic.dashboardtaskswidget
 
 import android.app.AlertDialog
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -61,12 +68,27 @@ class MainActivity : ComponentActivity() {
     private var activeFilter = "today"
     private var loadingDashboard = false
 
+    private val updatePrefs by lazy {
+        getSharedPreferences("app_updates", Context.MODE_PRIVATE)
+    }
+    private var updateReceiverRegistered = false
+    private val updateDownloadReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
+            val completedId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+            if (completedId == pendingUpdateDownloadId()) {
+                resumePendingUpdateInstall(openSettingsIfNeeded = false)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         bindViews()
         bindActions()
         updateTodayLabel()
+        registerUpdateDownloadReceiver()
 
         lifecycleScope.launch {
             statusText.text = getString(R.string.checking_session)
@@ -77,9 +99,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        resumePendingUpdateInstall(openSettingsIfNeeded = false)
         if (::loggedInBox.isInitialized && loggedInBox.visibility == View.VISIBLE) {
             lifecycleScope.launch { loadDashboard(showStatus = false) }
         }
+    }
+
+    override fun onDestroy() {
+        if (updateReceiverRegistered) {
+            runCatching { unregisterReceiver(updateDownloadReceiver) }
+            updateReceiverRegistered = false
+        }
+        super.onDestroy()
     }
 
     private fun bindViews() {
@@ -121,10 +152,14 @@ class MainActivity : ComponentActivity() {
         addQuickTaskButton.setOnClickListener { addQuickTask() }
 
         updateAppButton.setOnClickListener {
+            if (pendingUpdateDownloadId() >= 0L) {
+                resumePendingUpdateInstall(openSettingsIfNeeded = true)
+                return@setOnClickListener
+            }
+
             val update = availableUpdate
             if (update != null) {
-                val target = update.apkUrl ?: update.releaseUrl
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+                downloadAndInstallUpdate(update)
             } else {
                 checkForUpdates(showCurrent = true)
             }
@@ -568,7 +603,158 @@ class MainActivity : ComponentActivity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
+    private fun registerUpdateDownloadReceiver() {
+        if (updateReceiverRegistered) return
+        val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(updateDownloadReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(updateDownloadReceiver, filter)
+        }
+        updateReceiverRegistered = true
+    }
+
+    private fun pendingUpdateDownloadId(): Long =
+        updatePrefs.getLong(PREF_UPDATE_DOWNLOAD_ID, -1L)
+
+    private fun clearPendingUpdateDownload() {
+        updatePrefs.edit()
+            .remove(PREF_UPDATE_DOWNLOAD_ID)
+            .remove(PREF_UPDATE_VERSION)
+            .apply()
+    }
+
+    private fun downloadAndInstallUpdate(update: AppUpdateInfo) {
+        val apkUrl = update.apkUrl
+        if (apkUrl.isNullOrBlank()) {
+            updateStatusText.text = "APK nicht direkt verfügbar. Release-Seite wird geöffnet."
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
+            return
+        }
+
+        val fileName = "Aufgaben-Dashboard-${update.versionName}-${System.currentTimeMillis()}.apk"
+        val request = DownloadManager.Request(Uri.parse(apkUrl))
+            .setTitle("Aufgaben Dashboard ${update.versionName}")
+            .setDescription("Update wird heruntergeladen …")
+            .setMimeType(APK_MIME)
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setAllowedOverMetered(true)
+            .setAllowedOverRoaming(false)
+            .setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, fileName)
+
+        val manager = getSystemService(DownloadManager::class.java)
+        runCatching { manager.enqueue(request) }
+            .onSuccess { downloadId ->
+                updatePrefs.edit()
+                    .putLong(PREF_UPDATE_DOWNLOAD_ID, downloadId)
+                    .putString(PREF_UPDATE_VERSION, update.versionName)
+                    .apply()
+                updateStatusText.text = "Update ${update.versionName} wird heruntergeladen …"
+                updateAppButton.text = "Download läuft …"
+                updateAppButton.isEnabled = false
+            }
+            .onFailure {
+                updateStatusText.text = "Update konnte nicht heruntergeladen werden."
+                updateAppButton.text = "Update ${update.versionName} erneut versuchen"
+                updateAppButton.isEnabled = true
+            }
+    }
+
+    private fun resumePendingUpdateInstall(openSettingsIfNeeded: Boolean) {
+        val downloadId = pendingUpdateDownloadId()
+        if (downloadId < 0L || !::updateStatusText.isInitialized) return
+
+        val manager = getSystemService(DownloadManager::class.java)
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor = runCatching { manager.query(query) }.getOrNull() ?: return
+
+        cursor.use {
+            if (!it.moveToFirst()) {
+                clearPendingUpdateDownload()
+                return
+            }
+
+            when (it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
+                DownloadManager.STATUS_SUCCESSFUL -> {
+                    val version = updatePrefs.getString(PREF_UPDATE_VERSION, null)
+                    if (packageManager.canRequestPackageInstalls()) {
+                        installDownloadedUpdate(manager, downloadId)
+                    } else {
+                        updateStatusText.text =
+                            "Update${version?.let { v -> " $v" } ?: ""} ist geladen. Installation aus dieser Quelle erlauben."
+                        updateAppButton.text = "Installation erlauben"
+                        updateAppButton.isEnabled = true
+                        if (openSettingsIfNeeded) openUnknownSourcesSettings()
+                    }
+                }
+
+                DownloadManager.STATUS_FAILED -> {
+                    clearPendingUpdateDownload()
+                    updateStatusText.text = "Der Update-Download ist fehlgeschlagen."
+                    updateAppButton.text = "Update erneut suchen"
+                    updateAppButton.isEnabled = true
+                }
+
+                DownloadManager.STATUS_PENDING,
+                DownloadManager.STATUS_RUNNING,
+                DownloadManager.STATUS_PAUSED -> {
+                    val version = updatePrefs.getString(PREF_UPDATE_VERSION, null)
+                    updateStatusText.text =
+                        "Update${version?.let { v -> " $v" } ?: ""} wird heruntergeladen …"
+                    updateAppButton.text = "Download läuft …"
+                    updateAppButton.isEnabled = false
+                }
+            }
+        }
+    }
+
+    private fun installDownloadedUpdate(manager: DownloadManager, downloadId: Long) {
+        val apkUri = manager.getUriForDownloadedFile(downloadId)
+        if (apkUri == null) {
+            clearPendingUpdateDownload()
+            updateStatusText.text = "APK konnte nach dem Download nicht geöffnet werden."
+            updateAppButton.text = "Update erneut suchen"
+            updateAppButton.isEnabled = true
+            return
+        }
+
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, APK_MIME)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        runCatching { startActivity(installIntent) }
+            .onSuccess {
+                clearPendingUpdateDownload()
+                updateStatusText.text = "Android-Installation wurde geöffnet."
+                updateAppButton.text = "Installation läuft …"
+                updateAppButton.isEnabled = false
+            }
+            .onFailure {
+                updateStatusText.text = "Installer konnte nicht geöffnet werden."
+                updateAppButton.text = "Erneut versuchen"
+                updateAppButton.isEnabled = true
+            }
+    }
+
+    private fun openUnknownSourcesSettings() {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+            Uri.parse("package:$packageName")
+        )
+        runCatching { startActivity(intent) }
+            .onFailure {
+                runCatching { startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }
+            }
+    }
+
     private fun checkForUpdates(showCurrent: Boolean) {
+        if (pendingUpdateDownloadId() >= 0L) {
+            resumePendingUpdateInstall(openSettingsIfNeeded = false)
+            return
+        }
+
         updateAppButton.isEnabled = false
         updateStatusText.text = "Suche nach neuer Version …"
 
@@ -601,5 +787,11 @@ class MainActivity : ComponentActivity() {
     private fun setBusy(busy: Boolean) {
         loginButton.isEnabled = !busy
         mfaButton.isEnabled = !busy
+    }
+
+    private companion object {
+        const val APK_MIME = "application/vnd.android.package-archive"
+        const val PREF_UPDATE_DOWNLOAD_ID = "update_download_id"
+        const val PREF_UPDATE_VERSION = "update_version"
     }
 }
